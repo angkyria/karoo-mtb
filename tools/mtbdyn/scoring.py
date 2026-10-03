@@ -87,9 +87,10 @@ def mtb_score(d: float, s: float, a: float) -> float:
     return 0.45 * d + 0.40 * s + 0.15 * a
 
 
-def jump_height(air: float, drop: float = 0.0) -> float:
+def jump_height(air: float, drop: float | None = 0.0) -> float:
     if air <= 0:
         return 0.0
+    drop = _nz(drop)
     vz0 = (G * air * air / 2.0 - drop) / air
     apex = vz0 * vz0 / (2 * G) if vz0 > 0 else 0.0
     return apex + max(0.0, drop)
