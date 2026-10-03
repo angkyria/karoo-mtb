@@ -98,7 +98,7 @@ reminders when something is due):
 | Live descents, trails / PBs, map layer, Mark moment, intervals.icu push, debug bundle (v0.3) | 🟡 unit-tested against simulated rides and the karoo-ext SDK; not on a real ride yet |
 | Karoo 3 | ⚪ not tested yet (same SDK, should work) |
 
-89 Kotlin, 28 Python and 15 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
+90 Kotlin, 28 Python and 15 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
 
 ---
 

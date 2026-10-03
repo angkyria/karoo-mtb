@@ -52,4 +52,16 @@ class MarkerTest {
         sim.engine.pause()
         assertNull(sim.engine.markMoment(sim.wallMs(), sim.elapsedMs))
     }
+
+    @Test
+    fun `a bump after the landing does not hide the jump`() {
+        val sim = RideSim().apply { start() }
+        sim.ride(10, speed = { 6.0 })
+        sim.jumpIn(1.0, 0.6)
+        sim.jumpIn(3.0, 0.12)
+        sim.ride(6, speed = { 6.0 })
+        val m = sim.mark()
+        assertEquals(0.6, m.flightAirSec!!, 0.05)
+        assertEquals("", m.flightVerdict)
+    }
 }

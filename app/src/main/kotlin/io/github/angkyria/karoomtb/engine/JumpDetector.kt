@@ -39,9 +39,10 @@ class JumpDetector(private var config: MtbConfig) {
 
     val airborne: Boolean get() = state == State.AIR
 
-    /** The last completed flight (from [MIN_FLIGHT_SEC]), accepted or rejected. */
-    var lastFlight: Flight? = null
-        private set
+    private val flights = ArrayDeque<Flight>()
+
+    /** Recent completed flights (from [MIN_FLIGHT_SEC]), accepted or rejected, oldest first. */
+    val recentFlights: List<Flight> get() = flights.toList()
 
     private var airStart = 0.0
     private var landTime = 0.0
@@ -61,7 +62,7 @@ class JumpDetector(private var config: MtbConfig) {
     fun reset() {
         state = State.GROUND
         cooldownUntil = 0.0
-        lastFlight = null
+        flights.clear()
     }
 
     /** @return a finished, validated flight or null. */
@@ -90,7 +91,7 @@ class JumpDetector(private var config: MtbConfig) {
                     // Far too long for a jump: dropped or thrown device.
                     state = State.GROUND
                     cooldownUntil = tSec + 1.0
-                    lastFlight = Flight(airStart, tSec - airStart, if (countG > 0) sumG / countG else 1.0, 0.0, "longer than ${config.jumpMaxAirSec} s")
+                    remember(Flight(airStart, tSec - airStart, if (countG > 0) sumG / countG else 1.0, 0.0, "longer than ${config.jumpMaxAirSec} s"))
                 }
             }
 
@@ -134,7 +135,7 @@ class JumpDetector(private var config: MtbConfig) {
             peakLandingG < s.minLandingG -> String.format(Locale.ROOT, "landing %.2f g < %.2f", peakLandingG, s.minLandingG)
             else -> ""
         }
-        if (air >= MIN_FLIGHT_SEC) lastFlight = Flight(airStart, air, meanG, peakLandingG, reason)
+        if (air >= MIN_FLIGHT_SEC) remember(Flight(airStart, air, meanG, peakLandingG, reason))
         if (reason.isNotEmpty()) return null
         val rotationDeg = Math.toDegrees(sqrt(rotX * rotX + rotY * rotY + rotZ * rotZ))
         return RawJump(airStart, landTime, air, meanG, peakLandingG, rotationDeg)
@@ -142,7 +143,12 @@ class JumpDetector(private var config: MtbConfig) {
 
     /** The engine rejected an accepted flight later (take-off speed). */
     fun rejectLast(reason: String) {
-        lastFlight = lastFlight?.copy(reason = reason)
+        flights.removeLastOrNull()?.let { flights.addLast(it.copy(reason = reason)) }
+    }
+
+    private fun remember(flight: Flight) {
+        flights.addLast(flight)
+        while (flights.size > MAX_RECENT_FLIGHTS) flights.removeFirst()
     }
 
     companion object {
@@ -156,5 +162,6 @@ class JumpDetector(private var config: MtbConfig) {
 
         /** Shorter dips below the take-off threshold are not reported as flights. */
         const val MIN_FLIGHT_SEC = 0.08
+        private const val MAX_RECENT_FLIGHTS = 20
     }
 }

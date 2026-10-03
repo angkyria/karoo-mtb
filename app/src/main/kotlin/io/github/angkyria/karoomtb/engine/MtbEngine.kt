@@ -341,13 +341,14 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
 
     /**
      * The rider marked this moment (controller button). Null when not recording. The marker
-     * carries the last flight if it landed within [MARK_FLIGHT_WINDOW_SEC] before the press.
+     * carries the longest flight that landed within [MARK_FLIGHT_WINDOW_SEC] before the press
+     * (a jump, not the bump right after its landing).
      */
     fun markMoment(wallMs: Long, elapsedMs: Long): Marker? = synchronized(lock) {
         if (status != RideStatus.RECORDING) return null
-        val flight = jumpDetector.lastFlight
         val nowSec = elapsedMs / 1000.0
-        val ago = flight?.let { nowSec - (it.takeoffSec + it.airSec) }?.takeIf { it in -1.0..MARK_FLIGHT_WINDOW_SEC }
+        val flight = jumpDetector.recentFlights.filter { nowSec - (it.takeoffSec + it.airSec) in -1.0..MARK_FLIGHT_WINDOW_SEC }.maxByOrNull { it.airSec }
+        val ago = flight?.let { nowSec - (it.takeoffSec + it.airSec) }
         val marker = Marker(
             n = markers.size + 1,
             wallMs = wallMs,
