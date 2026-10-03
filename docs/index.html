@@ -178,7 +178,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
 <header class="hero" id="top">
   <div class="wrap hero-grid">
     <div>
-      <span class="pill">In testing · v0.2.0 debug builds</span>
+      <span class="pill">In testing · v0.3.0 debug builds</span>
       <h1>MTB Dynamics for <span>Karoo</span></h1>
       <p>Garmin-style trail analytics for the Hammerhead Karoo 2 and Karoo 3: Grit, Flow, jumps,
         cornering and descents, with RockShox Flight Attendant and SRAM AXS insights. When the ride
@@ -243,8 +243,9 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
           <div>
             <strong>Still being tested</strong>
             <ul class="todo">
-              <li>Jump detection thresholds on real jumps</li>
+              <li>Jump detection thresholds on real jumps (the new Mark moment button helps)</li>
               <li>Bike systems live on a ride (v0.2)</li>
+              <li>Live descents, trail PBs, map layer, intervals.icu push (v0.3)</li>
               <li>Service tracker over many rides</li>
               <li>Karoo 3</li>
             </ul>
@@ -267,10 +268,14 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
       <div class="card"><div class="ic">⬇️</div><h3>Descending</h3><p>Time, drop, speed, braking share, and Flow and Grit on descents.</p></div>
       <div class="card"><div class="ic">🏅</div><h3>MTB score</h3><p>0–100 from difficulty, smoothness and airtime.</p></div>
       <div class="card"><div class="ic">🗺️</div><h3>Trail segments</h3><p>The ride split into climbs, descents and flats, plus your laps, with every metric per segment.</p></div>
-      <div class="card"><div class="ic">🔩</div><h3>Bike systems <span class="tag">new</span></h3><p>Flight Attendant, AXS shifting and the power meter, joined with the terrain they were used on.</p></div>
-      <div class="card"><div class="ic">🛠️</div><h3>Service tracker <span class="tag">new</span></h3><p>Fork and shock hours, chain km, cog usage and battery history, with reminders when service is due.</p></div>
+      <div class="card"><div class="ic">⏬</div><h3>Live descents <span class="tag">new</span></h3><p>A field for the descent you are on, and an alert at the bottom with time, drop, Flow and braking.</p></div>
+      <div class="card"><div class="ic">🏆</div><h3>Trail personal bests <span class="tag">new</span></h3><p>Descents you ride again are recognised and timed between the trail's start and end: rank and PB.</p></div>
+      <div class="card"><div class="ic">🛑</div><h3>Where Flow was lost <span class="tag">new</span></h3><p>The spots with the most unnecessary braking, comparable laps, and left vs right corners.</p></div>
+      <div class="card"><div class="ic">📍</div><h3>Map layer <span class="tag">new</span></h3><p>Your jumps, marked moments and rough ground on the Karoo map.</p></div>
+      <div class="card"><div class="ic">🔩</div><h3>Bike systems</h3><p>Flight Attendant, AXS shifting and the power meter, joined with the terrain they were used on.</p></div>
+      <div class="card"><div class="ic">🛠️</div><h3>Service tracker</h3><p>Fork and shock hours, chain km, cog usage and battery history, with reminders when service is due.</p></div>
       <div class="card"><div class="ic">📲</div><h3>Ride summary on your phone</h3><p>Sent over <a href="https://ntfy.sh">ntfy</a> when the ride ends, through Wi-Fi, LTE or the companion app.</p></div>
-      <div class="card"><div class="ic">📈</div><h3>FIT + intervals.icu</h3><p>All values go into the FIT file. Copy-paste streams, fields and charts are included for intervals.icu.</p></div>
+      <div class="card"><div class="ic">📈</div><h3>FIT + intervals.icu</h3><p>All values go into the FIT file. Copy-paste streams, fields and charts are included for intervals.icu, and with an API key the Karoo writes the summary into the activity.</p></div>
       <div class="card"><div class="ic">🐍</div><h3>Analysis tool</h3><p>A Python script for HTML reports with maps and charts, CSV/JSON export, multi-ride history and intervals.icu sync.</p></div>
     </div>
   </div>
@@ -279,7 +284,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
 <section id="karoo">
   <div class="wrap">
     <h2>On the Karoo</h2>
-    <p class="lead">Twenty data fields, three of them graphical. Alerts after each jump, and when the suspension stays locked on rough ground. A settings screen with a sensor test.</p>
+    <p class="lead">Twenty-two data fields, four of them graphical (three with cells you choose). Alerts after each jump, at the bottom of each descent (with your trail PB) and when the suspension stays locked on rough ground. A map layer, a "Mark moment" controller button, and a settings screen with a sensor test and a one-tap debug bundle.</p>
     <div class="shots">
       <figure class="shot"><img src="img/karoo-sensors.png" alt="Settings screen with the sensor test result on a Karoo 2" loading="lazy" width="480" height="800"><figcaption>Sensor test: the accelerometer and gyroscope at 98 Hz</figcaption></figure>
       <figure class="shot"><img src="img/karoo-alerts.png" alt="Bike-system alert switches and service tracker introduction" loading="lazy" width="480" height="800"><figcaption>Bike alerts and the service tracker</figcaption></figure>
@@ -304,6 +309,10 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
             &nbsp;&nbsp;• Longest: <strong>0.83 s</strong> · 6.2 m · 27.0 km/h<br>
             ↪️ <strong>30 corners</strong> · max 0.79 g · speed kept 100%<br>
             ⬇️ <strong>Descents 10:00</strong> · 482 m ↓ · braking 21%</p>
+          <p>🏆 Descent 2 · Dragon's back: <strong>PB 5:07</strong> (was 5:12) · run 6<br>
+            ⏱ Descent 1 · Trail 2: 5:12 · 3rd of 9 · best 4:58</p>
+          <p><strong>Where Flow was lost</strong><br>
+            1. Descent 2 · at 6.3 km · 18.2 m braking · 32→18 km/h</p>
           <p>🔩 <strong>Flight Attendant</strong> descents 93% open · climbs 100% lock · opens 22 s into descents<br>
             ⚙️ <strong>2 shifts</strong> (0.7/km) · cogs 18–32T · climbs 32T<br>
             💪 <strong>Power</strong> climbs 230 W (3.1 W/kg) · L/R 47/53<br>

@@ -5,6 +5,10 @@ The Karoo extension writes all MTB data into the ride's FIT file as developer fi
 there is a one-time setup. After that every new Karoo ride shows Grit, Flow, jumps, braking etc.
 For rides uploaded before the setup, open the activity and choose **Actions → Re-analyse**.
 
+> Want just a summary without the setup? With an intervals.icu API key in the MTB Dynamics app
+> (0.3+), the Karoo writes an MTB block into each activity's description, and can fill the custom
+> activity fields below once you have created them.
+
 The scripts here also work for **Garmin Edge** rides: they fall back to Garmin's own MTB
 Dynamics fields (`grit`, `flow`, `total_grit`, `avg_flow`, `jump_count`, jump messages).
 

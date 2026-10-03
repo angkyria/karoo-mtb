@@ -7,8 +7,8 @@ plugins {
 }
 
 // Release metadata, injected by CI (see .github/workflows/build.yml).
-val releaseVersion: String = System.getenv("RELEASE_VERSION")?.removePrefix("v") ?: "0.2.0"
-val buildNumber: Int = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 2
+val releaseVersion: String = System.getenv("RELEASE_VERSION")?.removePrefix("v") ?: "0.3.0"
+val buildNumber: Int = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 3
 val releaseBaseUrl: String = System.getenv("BASE_URL")
     ?: "https://github.com/angkyria/karoo-mtb/releases/latest/download"
 val hasReleaseKeystore = !System.getenv("KEYSTORE_BASE64").isNullOrBlank()
@@ -86,8 +86,8 @@ val generateKarooManifest by tasks.registering {
             "latestVersionCode" to 100 + buildNumber,
             "developer" to "github.com/angkyria",
             "description" to "Garmin-style MTB Dynamics for Karoo: Grit, Flow, jumps (airtime, distance, height), " +
-                "cornering, descents, MTB score and trail segments. Writes everything to the FIT file " +
-                "and sends a ride summary over ntfy.",
+                "cornering, descents, MTB score and trail segments, live descents and trail personal bests. " +
+                "Writes everything to the FIT file and sends a ride summary over ntfy.",
             "releaseNotes" to (System.getenv("RELEASE_NOTES") ?: "See GitHub release notes."),
             "tags" to listOf("performance"),
         )
