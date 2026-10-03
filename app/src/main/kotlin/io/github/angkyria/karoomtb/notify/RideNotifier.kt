@@ -3,6 +3,7 @@ package io.github.angkyria.karoomtb.notify
 import android.util.Log
 import io.github.angkyria.karoomtb.Settings
 import io.github.angkyria.karoomtb.engine.RideSummary
+import io.github.angkyria.karoomtb.storage.DebugBundle
 import io.github.angkyria.karoomtb.storage.NtfyStatus
 import io.github.angkyria.karoomtb.storage.RideStore
 import kotlinx.serialization.encodeToString
@@ -96,6 +97,24 @@ class RideNotifier(
             if (summary.endWallMs < cutoff) continue
             publish(ride, summary, units)
         }
+    }
+
+    /**
+     * Sends a file as ntfy attachment(s), in parts the Karoo bridge accepts (join with cat).
+     * Does not wait for a connection.
+     */
+    suspend fun sendFile(name: String, bytes: ByteArray, text: String): SendResult {
+        val target = settings.ntfyTarget()
+        if (!NtfyRequest.isValidTopic(target.topic)) return SendResult(false, 0, "invalid topic")
+        val parts = DebugBundle.parts(bytes)
+        var last = SendResult(false, 0, "empty")
+        for ((i, part) in parts.withIndex()) {
+            val file = if (parts.size == 1) name else String.format(Locale.ROOT, "%s.%03d", name, i + 1)
+            val message = if (parts.size == 1) text else "$text · part ${i + 1}/${parts.size}, join: cat $name.* > $name"
+            last = sender.send(NtfyRequest.attachment(target, file, part, message), waitForConnection = false, timeoutMs = 60_000)
+            if (!last.ok) return last
+        }
+        return last.copy(detail = "${parts.size} part${if (parts.size == 1) "" else "s"}, ${bytes.size / 1024} KB")
     }
 
     /** Sends a short test message; does not wait for a connection. */

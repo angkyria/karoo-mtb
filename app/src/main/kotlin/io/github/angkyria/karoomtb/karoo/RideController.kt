@@ -12,6 +12,7 @@ import io.github.angkyria.karoomtb.engine.RideSummary
 import io.github.angkyria.karoomtb.engine.SummaryMeta
 import io.github.angkyria.karoomtb.fit.MtbFitFields
 import io.github.angkyria.karoomtb.notify.HttpSender
+import io.github.angkyria.karoomtb.notify.IcuUploader
 import io.github.angkyria.karoomtb.notify.RideNotifier
 import io.github.angkyria.karoomtb.notify.SendResult
 import io.github.angkyria.karoomtb.notify.SummaryFormatter
@@ -61,7 +62,9 @@ class RideController(
     private val settings = MtbRuntime.settings
     private val store = MtbRuntime.store
     private val sensors = ImuSensorSource(context, engine)
-    private val notifier = RideNotifier(settings, store, HttpSender(karoo)) { MtbRuntime.service.notices(it) }
+    private val http = HttpSender(karoo)
+    private val notifier = RideNotifier(settings, store, http) { MtbRuntime.service.notices(it) }
+    private val icu = IcuUploader(settings::icuConfig, store, http)
 
     private val rideStates = Channel<RideState>(Channel.UNLIMITED)
     private val consumers = ArrayList<String>()
@@ -128,6 +131,7 @@ class RideController(
         scope.launch {
             delay(5_000)
             notifier.retryPending(MtbRuntime.units)
+            icu.retryPending(MtbRuntime.units)
         }
     }
 
@@ -253,6 +257,22 @@ class RideController(
         announce(summary)
         countService(summary)
         scope.launch { reportFailure(notifier.publish(dir, summary, MtbRuntime.units)) }
+        scope.launch { icuAfterRide(dir, summary) }
+    }
+
+    /**
+     * The Karoo uploads the ride to intervals.icu itself; once the activity shows up there, its
+     * description gets the MTB block. Tried for an hour here, then whenever the Karoo connects.
+     */
+    private suspend fun icuAfterRide(dir: File, summary: RideSummary) {
+        if (!icu.enabled || summary.movingSec < settings.minNotifyMinutes * 60) return
+        icu.markPending(dir)
+        delay(ICU_FIRST_TRY_MS)
+        repeat(ICU_TRIES) {
+            val r = icu.publish(dir, summary, MtbRuntime.units)
+            if (r.ok || r.permanentFailure) return
+            delay(ICU_RETRY_MS)
+        }
     }
 
     /** The Karoo is idle but a stored ride never got its summary (the extension was killed). */
@@ -280,6 +300,7 @@ class RideController(
         countService(summary)
         Log.i(TAG, "finished ride ${dir.name} from storage")
         reportFailure(notifier.publish(dir, summary, MtbRuntime.units))
+        scope.launch { icuAfterRide(dir, summary) }
     }
 
     private fun subscribeStreams() {
@@ -531,5 +552,8 @@ class RideController(
         private const val RIDE_TIME_WAIT_MS = 3_000L
         private const val ORPHAN_MAX_AGE_MS = 48L * 3600 * 1000
         private const val WAKE_LOCK_MAX_MS = 12L * 3600 * 1000
+        private const val ICU_FIRST_TRY_MS = 3L * 60 * 1000
+        private const val ICU_RETRY_MS = 5L * 60 * 1000
+        private const val ICU_TRIES = 12
     }
 }

@@ -5,6 +5,7 @@ import io.github.angkyria.karoomtb.engine.MtbConfig
 import io.github.angkyria.karoomtb.engine.Sensitivity
 import io.github.angkyria.karoomtb.karoo.Panel
 import io.github.angkyria.karoomtb.karoo.PanelCell
+import io.github.angkyria.karoomtb.notify.IcuConfig
 import io.github.angkyria.karoomtb.notify.NtfyRequest
 import io.github.angkyria.karoomtb.notify.NtfyTarget
 import java.security.SecureRandom
@@ -46,6 +47,26 @@ class Settings(context: Context) {
     var ntfyMapLinks: Boolean
         get() = prefs.getBoolean("ntfy_map_links", false)
         set(v) = prefs.edit().putBoolean("ntfy_map_links", v).apply()
+
+    /** intervals.icu: put the MTB block into the description of the uploaded activity. */
+    var icuEnabled: Boolean
+        get() = prefs.getBoolean("icu_enabled", false)
+        set(v) = prefs.edit().putBoolean("icu_enabled", v).apply()
+
+    /** intervals.icu → Settings → Developer Settings → API key. */
+    var icuApiKey: String
+        get() = prefs.getString("icu_key", null) ?: ""
+        set(v) = prefs.edit().putString("icu_key", v.trim()).apply()
+
+    /** Athlete id ("0" = the owner of the API key). */
+    var icuAthleteId: String
+        get() = prefs.getString("icu_athlete", null) ?: "0"
+        set(v) = prefs.edit().putString("icu_athlete", v.trim().ifEmpty { "0" }).apply()
+
+    /** Also set the custom activity fields (MtbGrit, MtbFlow, …; they must exist on intervals.icu). */
+    var icuFields: Boolean
+        get() = prefs.getBoolean("icu_fields", false)
+        set(v) = prefs.edit().putBoolean("icu_fields", v).apply()
 
     /** Rides with less moving time than this are not sent (e.g. a discarded test ride). */
     var minNotifyMinutes: Int
@@ -115,6 +136,14 @@ class Settings(context: Context) {
     }
 
     fun mtbConfig(): MtbConfig = MtbConfig(sensitivity = sensitivity, segmentMinElevationM = segmentMinElevationM.toDouble())
+
+    /** All settings for a bug report, with the ntfy topic / token and the intervals.icu key hidden. */
+    fun debugDump(): String {
+        val secret = setOf("ntfy_topic", "ntfy_token", "icu_key")
+        return prefs.all.toSortedMap().entries.joinToString("\n") { (k, v) -> "$k = ${if (k in secret && v.toString().isNotEmpty()) "***" else v}" }
+    }
+
+    fun icuConfig(): IcuConfig = IcuConfig(icuEnabled, icuApiKey, icuAthleteId, icuFields)
 
     fun ntfyTarget(): NtfyTarget = NtfyTarget(ntfyServer, ntfyTopic, ntfyToken, ntfyPriority, ntfyClickUrl)
 

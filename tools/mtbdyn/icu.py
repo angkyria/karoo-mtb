@@ -83,7 +83,7 @@ def merged_description(old: str | None, block: str) -> str:
         if line.startswith(DESCRIPTION_MARKER):
             skipping = True
             continue
-        if skipping and (line.startswith("Grit ") or " corners · " in line):
+        if skipping and (line.startswith("Grit ") or " corners · " in line or line.startswith("PB ")):
             continue
         skipping = False
         kept.append(line)

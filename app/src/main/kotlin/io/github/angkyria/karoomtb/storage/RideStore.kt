@@ -46,11 +46,16 @@ private data class StoredEvent(val jump: Jump? = null, val corner: Corner? = nul
  *  - events.jsonl   jumps, corners, shifts and marked moments
  *  - summary.json   end-of-ride summary (also what is sent over ntfy)
  *  - ntfy.json      delivery status of the ntfy notification
+ *  - icu.json       delivery status of the intervals.icu description (when enabled)
  *
  * Also lets the extension resume a ride after its process was restarted.
  */
-class RideStore(context: Context) {
-    private val root: File = File(context.getExternalFilesDir(null) ?: context.filesDir, "rides").apply { mkdirs() }
+class RideStore(private val root: File) {
+    constructor(context: Context) : this(File(context.getExternalFilesDir(null) ?: context.filesDir, "rides"))
+
+    init {
+        root.mkdirs()
+    }
 
     val rootPath: String get() = root.absolutePath
 
@@ -91,6 +96,13 @@ class RideStore(context: Context) {
     }
 
     fun ntfyStatus(dir: File): NtfyStatus? = readJson(File(dir, NTFY))
+
+    fun setIcuStatus(dir: File, status: NtfyStatus) {
+        runCatching { File(dir, ICU).writeText(json.encodeToString(status)) }
+    }
+
+    /** Delivery to intervals.icu (same states as ntfy), null when it was never tried. */
+    fun icuStatus(dir: File): NtfyStatus? = readJson(File(dir, ICU))
 
     /** Newest first. */
     fun rides(): List<File> = root.listFiles { f -> f.isDirectory && f.name.toLongOrNull() != null }
@@ -138,6 +150,7 @@ class RideStore(context: Context) {
         const val EVENTS = "events.jsonl"
         const val SUMMARY = "summary.json"
         const val NTFY = "ntfy.json"
+        const val ICU = "icu.json"
 
         val json = Json {
             ignoreUnknownKeys = true

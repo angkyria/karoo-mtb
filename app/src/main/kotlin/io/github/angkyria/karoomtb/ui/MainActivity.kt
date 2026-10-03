@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -26,11 +27,13 @@ import io.github.angkyria.karoomtb.Settings
 import io.github.angkyria.karoomtb.engine.Sensitivity
 import io.github.angkyria.karoomtb.karoo.MtbRuntime
 import io.github.angkyria.karoomtb.notify.HttpSender
+import io.github.angkyria.karoomtb.notify.IcuUploader
 import io.github.angkyria.karoomtb.notify.NtfyRequest
 import io.github.angkyria.karoomtb.notify.RideNotifier
 import io.github.angkyria.karoomtb.notify.SummaryFormatter
 import io.github.angkyria.karoomtb.notify.Units
 import io.github.angkyria.karoomtb.service.ServiceTracker
+import io.github.angkyria.karoomtb.storage.DebugBundle
 import io.github.angkyria.karoomtb.storage.RideStore
 import io.github.angkyria.karoomtb.trails.TrailLibrary
 import io.hammerhead.karooext.KarooSystemService
@@ -39,6 +42,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -60,6 +65,12 @@ class MainActivity : Activity() {
     private lateinit var minMinutes: EditText
     private lateinit var ntfyAttach: Switch
     private lateinit var ntfyMapLinks: Switch
+    private lateinit var icuEnabled: Switch
+    private lateinit var icuKey: EditText
+    private lateinit var icuAthlete: EditText
+    private lateinit var icuFields: Switch
+    private lateinit var icuResult: TextView
+    private lateinit var icu: IcuUploader
     private lateinit var sensitivity: Spinner
     private lateinit var jumpAlerts: Switch
     private lateinit var jumpBeep: Switch
@@ -86,7 +97,9 @@ class MainActivity : Activity() {
         MtbRuntime.init(applicationContext)
         settings = MtbRuntime.settings
         store = MtbRuntime.store
-        notifier = RideNotifier(settings, store, HttpSender(karoo)) { MtbRuntime.service.notices(it) }
+        val http = HttpSender(karoo)
+        notifier = RideNotifier(settings, store, http) { MtbRuntime.service.notices(it) }
+        icu = IcuUploader(settings::icuConfig, store, http)
 
         ntfyEnabled = findViewById(R.id.ntfy_enabled)
         ntfyServer = findViewById(R.id.ntfy_server)
@@ -97,6 +110,11 @@ class MainActivity : Activity() {
         minMinutes = findViewById(R.id.min_minutes)
         ntfyAttach = findViewById(R.id.ntfy_attach)
         ntfyMapLinks = findViewById(R.id.ntfy_map_links)
+        icuEnabled = findViewById(R.id.icu_enabled)
+        icuKey = findViewById(R.id.icu_key)
+        icuAthlete = findViewById(R.id.icu_athlete)
+        icuFields = findViewById(R.id.icu_fields)
+        icuResult = findViewById(R.id.icu_result)
         sensitivity = findViewById(R.id.sensitivity)
         jumpAlerts = findViewById(R.id.jump_alerts)
         jumpBeep = findViewById(R.id.jump_beep)
@@ -148,6 +166,7 @@ class MainActivity : Activity() {
                 sensorButton.isEnabled = true
             }
         }
+        findViewById<Button>(R.id.debug_bundle).setOnClickListener { sendDebugBundle(sensorResult) }
         findViewById<Button>(R.id.new_topic).setOnClickListener { ntfyTopic.setText(Settings.randomTopic()) }
         findViewById<Button>(R.id.save).setOnClickListener {
             if (save()) {
@@ -162,6 +181,29 @@ class MainActivity : Activity() {
             scope.launch {
                 val r = notifier.test(units())
                 testResult.text = if (r.ok) "✔ Delivered (HTTP ${r.status}). Check the ntfy app." else "✘ Failed: ${r.status} ${r.detail}"
+            }
+        }
+        findViewById<Button>(R.id.icu_test).setOnClickListener {
+            if (!save()) return@setOnClickListener
+            icuResult.text = "Checking…"
+            scope.launch {
+                val r = icu.test()
+                icuResult.text = if (r.ok) "✔ Connected: ${r.detail}" else "✘ ${if (r.status > 0) "HTTP ${r.status}" else r.detail}"
+            }
+        }
+        findViewById<Button>(R.id.icu_send).setOnClickListener {
+            if (!save()) return@setOnClickListener
+            val dir = store.latestFinished() ?: return@setOnClickListener
+            val summary = store.summary(dir) ?: return@setOnClickListener
+            if (!icu.enabled) {
+                icuResult.text = "Turn it on and enter an API key first."
+                return@setOnClickListener
+            }
+            icuResult.text = "Sending the last ride…"
+            scope.launch {
+                val r = icu.publish(dir, summary, units(), waitForConnection = false, timeoutMs = 60_000)
+                icuResult.text = if (r.ok) "✔ Description updated." else "✘ ${store.icuStatus(dir)?.detail ?: r.detail}"
+                showLastRide()
             }
         }
         findViewById<Button>(R.id.resend).setOnClickListener {
@@ -205,6 +247,10 @@ class MainActivity : Activity() {
         minMinutes.setText(settings.minNotifyMinutes.toString())
         ntfyAttach.isChecked = settings.ntfyAttachJson
         ntfyMapLinks.isChecked = settings.ntfyMapLinks
+        icuEnabled.isChecked = settings.icuEnabled
+        icuKey.setText(settings.icuApiKey)
+        icuAthlete.setText(settings.icuAthleteId)
+        icuFields.isChecked = settings.icuFields
         sensitivity.setSelection(settings.sensitivity.ordinal)
         jumpAlerts.isChecked = settings.jumpAlerts
         jumpBeep.isChecked = settings.jumpBeep
@@ -236,6 +282,10 @@ class MainActivity : Activity() {
         settings.minNotifyMinutes = minMinutes.text.toString().toIntOrNull() ?: settings.minNotifyMinutes
         settings.ntfyAttachJson = ntfyAttach.isChecked
         settings.ntfyMapLinks = ntfyMapLinks.isChecked
+        settings.icuEnabled = icuEnabled.isChecked
+        settings.icuApiKey = icuKey.text.toString()
+        settings.icuAthleteId = icuAthlete.text.toString()
+        settings.icuFields = icuFields.isChecked
         settings.sensitivity = Sensitivity.entries[sensitivity.selectedItemPosition.coerceIn(0, Sensitivity.entries.lastIndex)]
         settings.jumpAlerts = jumpAlerts.isChecked
         settings.jumpBeep = jumpBeep.isChecked
@@ -282,16 +332,48 @@ class MainActivity : Activity() {
         val units = units()
         val date = SimpleDateFormat("EEE d MMM yyyy, HH:mm", Locale.getDefault()).format(Date(summary.startWallMs))
         val status = store.ntfyStatus(dir)?.let { "${it.state} ${it.detail}".trim() } ?: "not sent"
+        val icuStatus = store.icuStatus(dir)?.let { "${it.state} ${it.detail}".trim() }
         lastRide.text = buildString {
             appendLine(date)
             appendLine(SummaryFormatter.oneLine(summary))
             appendLine("${units.distance(summary.distanceM)} · moving ${Units.duration(summary.movingSec)} · ${summary.cornering.count} corners")
             summary.jumps.longest?.let { appendLine("Longest jump ${String.format(Locale.ROOT, "%.2f s", it.airSec)} · ${units.meters(it.distanceM)}") }
             append("ntfy: $status")
+            icuStatus?.let { append("\nintervals.icu: $it") }
         }
     }
 
     private fun units(): Units = MtbRuntime.units
+
+    /** Zips the last ride (GPS removed), the log and the settings and sends it to the ntfy topic. */
+    private fun sendDebugBundle(result: TextView) {
+        if (!save()) return
+        result.text = "Collecting the last ride and the log…"
+        scope.launch {
+            val bytes = withContext(Dispatchers.IO) {
+                val dir = store.latestFinished() ?: store.rides().firstOrNull()
+                val base = getExternalFilesDir(null) ?: filesDir
+                val extras = buildMap {
+                    val device = "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} · app ${BuildConfig.VERSION_NAME}"
+                    put("device.txt", device + "\n" + sensorInfo())
+                    put("settings.txt", settings.debugDump())
+                    put("logcat.txt", logcat())
+                    File(base, ServiceTracker.FILE_NAME).takeIf { it.isFile }?.let { put("service.json", it.readText()) }
+                    File(base, TrailLibrary.FILE_NAME).takeIf { it.isFile }?.let { put("trails.json", it.readText()) }
+                }
+                DebugBundle.build(dir, extras)
+            }
+            val name = "mtb-debug-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.ROOT).format(Date()) + ".zip"
+            val r = notifier.sendFile(name, bytes, "MTB Dynamics debug bundle")
+            result.text = if (r.ok) "✔ Sent $name (${r.detail}). Attach it to a bug report or share it privately." else "✘ Failed: ${r.status} ${r.detail}"
+        }
+    }
+
+    /** This app's recent log lines (an app may read its own log). */
+    private fun logcat(): String = runCatching {
+        val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "threadtime", "-t", "3000"))
+        p.inputStream.bufferedReader().use { it.readText() }
+    }.getOrElse { "logcat failed: $it" }
 
     private fun sensorInfo(): String {
         val sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
