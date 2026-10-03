@@ -10,154 +10,7 @@
 <meta property="og:image" content="https://angkyria.github.io/karoo-mtb/img/report.jpg">
 <meta property="og:type" content="website">
 <link rel="icon" href="img/icon.svg" type="image/svg+xml">
-<style>
-:root {
-  --bg: #ffffff; --bg2: #f4f6f7; --card: #ffffff; --fg: #17191a; --muted: #5d676c; --line: #e2e7ea;
-  --accent: #ff6d00; --accent-ink: #ffffff; --accent-soft: #fff1e6; --warn: #8a4b00; --warn-bg: #fff6e0; --warn-line: #f3d18a;
-  --green: #2e7d32; --red: #c62828; --amber: #f9a825; --blue: #1565c0;
-  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.06);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #111416; --bg2: #171b1e; --card: #1b2023; --fg: #e9ecee; --muted: #9aa8af; --line: #2a3237;
-    --accent-soft: #2b1c10; --warn: #f3c46b; --warn-bg: #2a2212; --warn-line: #5c4a1e;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #111416; --bg2: #171b1e; --card: #1b2023; --fg: #e9ecee; --muted: #9aa8af; --line: #2a3237;
-  --accent-soft: #2b1c10; --warn: #f3c46b; --warn-bg: #2a2212; --warn-line: #5c4a1e;
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
-}
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88em; }
-code { background: var(--bg2); border: 1px solid var(--line); border-radius: 5px; padding: .05em .35em; }
-pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; margin: 12px 0; }
-pre code { background: none; border: 0; padding: 0; }
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
-/* Grid items default to min-width:auto, so a long code line would widen the whole page on phones. */
-.hero-grid > *, .split > *, .stack > *, .cols2 > *, .grid > *, ol.steps > li, .banner > * { min-width: 0; }
-pre { max-width: 100%; }
-img { max-width: 100%; }
-section { padding: 56px 0; border-top: 1px solid var(--line); }
-h1, h2, h3 { line-height: 1.2; margin: 0; }
-h2 { font-size: clamp(24px, 3.2vw, 32px); letter-spacing: -.01em; margin-bottom: 8px; }
-h3 { font-size: 17px; margin-bottom: 6px; }
-.lead { color: var(--muted); font-size: 18px; max-width: 760px; margin: 0 0 28px; }
-.muted { color: var(--muted); }
-.small { font-size: 14px; }
-
-/* nav */
-nav { position: sticky; top: 0; z-index: 10; background: var(--bg); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
-nav .wrap { display: flex; align-items: center; gap: 18px; height: 56px; }
-nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--fg); white-space: nowrap; }
-nav .brand img { width: 28px; height: 28px; border-radius: 7px; }
-nav .brand { flex-shrink: 0; }
-nav .links { display: flex; gap: 16px; margin-left: auto; min-width: 0; font-size: 15px; overflow-x: auto; scrollbar-width: none; }
-nav .links a { color: var(--muted); white-space: nowrap; }
-nav .links a:hover { color: var(--fg); text-decoration: none; }
-@media (max-width: 720px) { nav .links a.opt { display: none; } }
-
-/* hero */
-.hero { padding: 64px 0 48px; border: 0; }
-.hero-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 40px; align-items: center; }
-@media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
-.pill { display: inline-flex; align-items: center; gap: 8px; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-line); border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 600; }
-.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
-.hero h1 { font-size: clamp(36px, 5.6vw, 58px); letter-spacing: -.025em; margin: 18px 0 14px; }
-.hero h1 span { color: var(--accent); }
-.hero p { font-size: 19px; color: var(--muted); margin: 0 0 26px; max-width: 600px; }
-.buttons { display: flex; flex-wrap: wrap; gap: 12px; }
-.btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; border: 1px solid var(--line); color: var(--fg); background: var(--card); }
-.btn:hover { text-decoration: none; border-color: var(--muted); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn.primary:hover { filter: brightness(1.05); }
-.btn svg { width: 18px; height: 18px; }
-
-/* Karoo mock */
-.karoo { width: 100%; max-width: 330px; margin: 0 auto; background: #0d0f10; border-radius: 34px; padding: 18px 14px 26px; box-shadow: 0 20px 50px rgba(0,0,0,.28); }
-.screen { background: #f2f3f3; border-radius: 12px; overflow: hidden; color: #111; font-family: Roboto, system-ui, sans-serif; }
-.statusbar { background: #000; color: #fff; font-size: 11px; display: flex; justify-content: space-between; padding: 4px 10px; }
-.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: #c9cdcf; }
-.tile { background: #fff; padding: 8px 10px 9px; min-height: 66px; }
-.tile.wide { grid-column: span 2; }
-.tile .k { font-size: 10px; letter-spacing: .06em; color: #555; text-transform: uppercase; }
-.tile .v { font-size: 27px; font-weight: 700; line-height: 1.15; }
-.tile .v small { font-size: 14px; font-weight: 600; color: #444; }
-.quad { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
-.quad .v { font-size: 22px; }
-.coach { background: var(--green); color: #fff; text-align: center; padding: 10px 6px 12px; }
-.coach .v { font-size: 30px; letter-spacing: .02em; }
-.coach .h { font-size: 12px; opacity: .92; }
-.alert { margin: 8px; background: var(--accent); color: #fff; border-radius: 8px; padding: 9px 12px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
-.alert b { display: block; font-size: 15px; }
-.caption { text-align: center; color: var(--muted); font-size: 13px; margin-top: 12px; }
-
-/* testing banner */
-.banner { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 14px; padding: 20px 22px; display: grid; grid-template-columns: auto 1fr; gap: 16px; }
-.banner .icon { font-size: 26px; line-height: 1; }
-.banner h3 { color: var(--warn); }
-.banner p { margin: 6px 0 0; }
-.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px; }
-@media (max-width: 700px) { .cols2 { grid-template-columns: 1fr; } .banner { grid-template-columns: 1fr; } }
-ul.check, ul.todo { list-style: none; padding: 0; margin: 6px 0 0; }
-ul.check li, ul.todo li { padding-left: 24px; position: relative; margin: 5px 0; font-size: 15px; }
-ul.check li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
-ul.todo li::before { content: "○"; position: absolute; left: 0; color: var(--warn); font-weight: 700; }
-
-/* features */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
-.card .ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 10px; font-size: 20px; }
-.card p { margin: 0; color: var(--muted); font-size: 15px; }
-.tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); margin-left: 6px; vertical-align: 2px; }
-
-/* shots */
-.shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-@media (max-width: 760px) { .shots { grid-template-columns: 1fr; max-width: 340px; margin: 0 auto; } }
-.shot { margin: 0; }
-.shot img { width: 100%; height: auto; border-radius: 18px; border: 8px solid #0d0f10; box-shadow: var(--shadow); display: block; }
-.shot figcaption { color: var(--muted); font-size: 14px; margin-top: 10px; text-align: center; }
-
-/* ride report */
-.split { display: grid; grid-template-columns: .9fr 1.1fr; gap: 32px; align-items: start; }
-@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
-.phone { background: var(--bg2); border: 1px solid var(--line); border-radius: 20px; padding: 14px; }
-.notif { background: var(--card); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); font-size: 14px; line-height: 1.5; }
-.notif .app { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; margin-bottom: 6px; }
-.notif .app img { width: 18px; height: 18px; border-radius: 5px; }
-.notif .title { font-weight: 700; margin-bottom: 6px; }
-.notif p { margin: 0 0 8px; }
-.notif p:last-child { margin: 0; color: var(--muted); }
-.preview { display: block; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); background: #fff; }
-.preview img { width: 100%; height: auto; display: block; }
-.preview:hover { text-decoration: none; border-color: var(--accent); }
-.preview .bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--card); color: var(--fg); font-weight: 600; font-size: 15px; border-top: 1px solid var(--line); }
-.preview .bar span { color: var(--accent); }
-.stack { display: grid; gap: 18px; }
-
-/* tables */
-table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
-.table-wrap table td:first-child { font-weight: 600; white-space: nowrap; }
-
-/* steps */
-ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
-ol.steps > li { counter-increment: s; position: relative; padding: 16px 18px 16px 62px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
-ol.steps > li::before { content: counter(s); position: absolute; left: 18px; top: 16px; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
-ol.steps h3 { margin-bottom: 4px; }
-ol.steps p { margin: 4px 0 0; color: var(--muted); }
-
-footer { border-top: 1px solid var(--line); padding: 34px 0 48px; color: var(--muted); font-size: 14px; }
-footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; }
-.theme-toggle { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 5px 9px; cursor: pointer; font: inherit; font-size: 13px; }
-</style>
+<link rel="stylesheet" href="site.css">
 </head>
 <body>
 <nav>
@@ -167,6 +20,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
       <a href="#features">Features</a>
       <a class="opt" href="#karoo">On the Karoo</a>
       <a href="#report">Reports</a>
+      <a href="intervals-icu.html">intervals.icu</a>
       <a class="opt" href="#bike">Bike systems</a>
       <a href="#install">Install</a>
       <a href="#testing">Testing</a>
@@ -270,7 +124,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
       <div class="card"><div class="ic">🔩</div><h3>Bike systems <span class="tag">new</span></h3><p>Flight Attendant, AXS shifting and the power meter, joined with the terrain they were used on.</p></div>
       <div class="card"><div class="ic">🛠️</div><h3>Service tracker <span class="tag">new</span></h3><p>Fork and shock hours, chain km, cog usage and battery history, with reminders when service is due.</p></div>
       <div class="card"><div class="ic">📲</div><h3>Ride summary on your phone</h3><p>Sent over <a href="https://ntfy.sh">ntfy</a> when the ride ends, through Wi-Fi, LTE or the companion app.</p></div>
-      <div class="card"><div class="ic">📈</div><h3>FIT + intervals.icu</h3><p>All values go into the FIT file. Copy-paste streams, fields and charts are included for intervals.icu.</p></div>
+      <div class="card"><div class="ic">📈</div><h3>FIT + intervals.icu</h3><p>All values go into the FIT file. Copy-paste streams, fields and charts for intervals.icu: <a href="intervals-icu.html">setup guide →</a></p></div>
       <div class="card"><div class="ic">🐍</div><h3>Analysis tool</h3><p>A Python script for HTML reports with maps and charts, CSV/JSON export, multi-ride history and intervals.icu sync.</p></div>
     </div>
   </div>
@@ -367,6 +221,8 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
         <p>Open <strong>MTB Dynamics</strong> from the app drawer. Scan the QR code with the <a href="https://ntfy.sh">ntfy</a> app, then press <strong>Send test notification</strong>.</p></li>
       <li><h3>Add data fields and ride</h3>
         <p>Profiles → page → add field → MTB Dynamics. The extension records every ride, even with no field on screen.</p></li>
+      <li><h3>See it in intervals.icu</h3>
+        <p>A one-time setup of custom streams, fields and charts: follow the <a href="intervals-icu.html">intervals.icu setup guide</a> (5 minutes for the basics).</p></li>
     </ol>
     <p class="muted small" style="margin-top:16px">Prefer to build it yourself? See <a href="https://github.com/angkyria/karoo-mtb#building-from-source">Building from source</a>. Full documentation: <a href="https://github.com/angkyria/karoo-mtb#readme">README</a> · <a href="https://github.com/angkyria/karoo-mtb/blob/main/intervals-icu/README.md">intervals.icu setup</a> · <a href="https://github.com/angkyria/karoo-mtb/tree/main/tools">analysis tool</a></p>
   </div>

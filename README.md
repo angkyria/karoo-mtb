@@ -274,7 +274,10 @@ adb pull /sdcard/Android/data/io.github.angkyria.karoomtb/files/service.json
 
 ## intervals.icu
 
-See **[intervals-icu/README.md](intervals-icu/README.md)**: copy-paste custom streams, activity
+**Step-by-step setup guide with copy buttons: <https://angkyria.github.io/karoo-mtb/intervals-icu.html>**
+(quick start in 5 minutes; a synthetic sample ride to try it without riding).
+
+The same in Markdown: **[intervals-icu/README.md](intervals-icu/README.md)**: copy-paste custom streams, activity
 fields, interval fields (Grit/Flow/jumps for any selected trail section or lap) and activity
 charts (MTB Dynamics, Jumps, Trail segments, Suspension & gears). They work for Karoo and Garmin
 rides; the Flight Attendant / AXS ones need a Karoo ride with those parts paired.
@@ -448,10 +451,12 @@ that you have them and share them privately instead.
 ## Website
 
 <https://angkyria.github.io/karoo-mtb/> is served by GitHub Pages from [`docs/`](docs/). The demo
-ride report and history are generated from synthetic rides only:
+ride report, history and sample FIT are generated from synthetic rides only. The intervals.icu
+guide embeds the scripts from `intervals-icu/` (CI fails if it is out of date):
 
 ```sh
-python3 tools/make_site_demo.py     # rebuilds docs/demo/report.html and docs/demo/history.html
+python3 tools/make_site_demo.py     # docs/demo/report.html, docs/demo/history.html, docs/sample/*.fit
+python3 tools/make_site_guide.py    # docs/intervals-icu.html
 ```
 
 ## Building from source

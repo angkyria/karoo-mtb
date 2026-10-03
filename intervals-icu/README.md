@@ -1,9 +1,28 @@
 # MTB Dynamics in intervals.icu
 
+> **Easiest:** the [step-by-step guide on the website](https://angkyria.github.io/karoo-mtb/intervals-icu.html)
+> has every value and script below with copy buttons, plus a synthetic sample ride to try it.
+
 The Karoo extension writes all MTB data into the ride's FIT file as developer fields
 (`mtb_*`). intervals.icu keeps developer fields only once you tell it which ones to read, so
 there is a one-time setup. After that every new Karoo ride shows Grit, Flow, jumps, braking etc.
-For rides uploaded before the setup, open the activity and choose **Actions → Re-analyse**.
+For rides uploaded before the setup, open the activity and choose **Actions → Reprocess File**.
+That re-reads the FIT file; *Re-analyse* only recomputes from data already imported. For many rides,
+go to Calendar → activity list, tick the rides and reprocess them together.
+
+**Do the setup while viewing a ride recorded with MTB Dynamics**: the FIT field lists only offer
+the `mtb_*` fields when the open ride has them. No ride yet? Upload the synthetic
+[sample ride](https://angkyria.github.io/karoo-mtb/sample/mtb-dynamics-sample.fit) and delete it afterwards.
+
+### Quick start (5 minutes)
+
+1. Streams `mtb_grit` (record field `mtb_grit`, units `grit`), `mtb_flow` (script
+   [streams/mtb_flow.js](streams/mtb_flow.js), units `m`) and `mtb_jump_air` (record field
+   `mtb_jump_air`, units `s`).
+2. Activity fields `MtbGrit`, `MtbFlow` and `MtbJumps`, each reading its FIT session field
+   (`mtb_total_grit`, `mtb_flow_score`, `mtb_jumps`).
+3. The chart [charts/mtb_dynamics.js](charts/mtb_dynamics.js).
+4. **Actions → Reprocess File** on the ride.
 
 The scripts here also work for **Garmin Edge** rides: they fall back to Garmin's own MTB
 Dynamics fields (`grit`, `flow`, `total_grit`, `avg_flow`, `jump_count`, jump messages).

@@ -16,6 +16,7 @@ dist/
 # Private ride data (GPS tracks) never goes into the repository
 rides/
 *.fit
+!docs/sample/*.fit
 *.fit.gz
 imu.csv.gz
 service.json
