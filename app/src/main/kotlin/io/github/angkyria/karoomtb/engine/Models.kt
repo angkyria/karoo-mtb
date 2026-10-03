@@ -278,6 +278,40 @@ data class CornerStats(
     val maxLateralG: Double,
     val avgPeakLateralG: Double,
     val sharpestRadiusM: Double?,
+    /** Speed kept in left / right corners (null with fewer than 5 corners on that side). */
+    val speedKeptLeftPct: Double? = null,
+    val speedKeptRightPct: Double? = null,
+)
+
+/** Laps of about the same distance compared with each other. */
+@Serializable
+data class LapComparison(
+    val comparable: Int,
+    val laps: Int,
+    val fastestLap: Int,
+    val fastestSec: Double,
+    val medianSec: Double,
+    val smoothestLap: Int,
+    val smoothestFlow: Double,
+    /** Last third of the comparable laps vs the first third, % time (+ = slower); null below 4 laps. */
+    val trendPct: Double? = null,
+)
+
+/** A stretch with unnecessary braking (where Flow was lost). */
+@Serializable
+data class BrakingSpot(
+    val offsetSec: Double,
+    /** Ride distance where the braking started. */
+    val distanceM: Double,
+    /** Unnecessary-braking metres. */
+    val flowM: Double,
+    val durationSec: Double,
+    val speedBeforeMs: Double,
+    val speedAfterMs: Double,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    /** Climb / descent it is in, e.g. "Descent 2". */
+    val segment: String? = null,
 )
 
 @Serializable
@@ -446,4 +480,6 @@ data class RideSummary(
     val sensors: SensorInfo,
     val flowLagSec: Int,
     val bike: BikeStats = BikeStats(),
+    val lapComparison: LapComparison? = null,
+    val brakingSpots: List<BrakingSpot> = emptyList(),
 )

@@ -42,6 +42,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("ntfy_attach", false)
         set(v) = prefs.edit().putBoolean("ntfy_attach", v).apply()
 
+    /** OpenStreetMap links on the braking spots: puts GPS positions into the ntfy message. */
+    var ntfyMapLinks: Boolean
+        get() = prefs.getBoolean("ntfy_map_links", false)
+        set(v) = prefs.edit().putBoolean("ntfy_map_links", v).apply()
+
     /** Rides with less moving time than this are not sent (e.g. a discarded test ride). */
     var minNotifyMinutes: Int
         get() = prefs.getInt("min_notify_min", 3)

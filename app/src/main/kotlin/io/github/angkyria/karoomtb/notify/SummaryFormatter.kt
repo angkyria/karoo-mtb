@@ -1,6 +1,9 @@
 package io.github.angkyria.karoomtb.notify
 
+import io.github.angkyria.karoomtb.engine.BrakingSpot
+import io.github.angkyria.karoomtb.engine.Insights
 import io.github.angkyria.karoomtb.engine.Jump
+import io.github.angkyria.karoomtb.engine.LapComparison
 import io.github.angkyria.karoomtb.engine.RideSummary
 import io.github.angkyria.karoomtb.engine.SegmentStats
 import io.github.angkyria.karoomtb.notify.Units.Companion.duration
@@ -21,17 +24,33 @@ object SummaryFormatter {
         return "MTB Dynamics$profile · $date"
     }
 
-    /** [notices]: extra lines such as service reminders, shown after the bike section. */
-    fun markdown(summary: RideSummary, units: Units, notices: List<String> = emptyList()): String {
+    /**
+     * [notices]: extra lines such as service reminders, shown after the bike section.
+     * [trails]: trail personal-best lines. [mapLinks]: OpenStreetMap links on the braking spots.
+     */
+    fun markdown(
+        summary: RideSummary,
+        units: Units,
+        notices: List<String> = emptyList(),
+        trails: List<String> = emptyList(),
+        mapLinks: Boolean = false,
+    ): String {
         val head = headLines(summary, units) + bikeLines(summary) +
+            (if (trails.isNotEmpty()) listOf("") + trails else emptyList()) +
             (if (notices.isNotEmpty()) listOf("") + notices else emptyList())
         val tail = listOf("", footer(summary, units))
         val segmentLines = segmentLines(summary.segments, units).toMutableList()
         val lapLines = lapLines(summary.laps, units).toMutableList()
-        // Drop the least important lines (laps first, then segments) until the message fits.
+        val spotLines = brakingSpotLines(summary.brakingSpots, units, mapLinks).toMutableList()
+        // Drop the least important lines (laps first, then segments, then braking spots) until the message fits.
         while (true) {
             val body = buildList {
                 addAll(head)
+                if (spotLines.isNotEmpty()) {
+                    add("")
+                    add("**Where Flow was lost** (most unnecessary braking)")
+                    addAll(spotLines)
+                }
                 if (segmentLines.isNotEmpty()) {
                     add("")
                     add("**Trail segments**")
@@ -48,6 +67,7 @@ object SummaryFormatter {
                 body.toByteArray().size <= MAX_MESSAGE_BYTES -> return body
                 lapLines.isNotEmpty() -> lapLines.removeAt(lapLines.lastIndex)
                 segmentLines.isNotEmpty() -> segmentLines.removeAt(segmentLines.lastIndex)
+                spotLines.isNotEmpty() -> spotLines.removeAt(spotLines.lastIndex)
                 else -> return truncateUtf8(body, MAX_MESSAGE_BYTES)
             }
         }
@@ -104,6 +124,7 @@ object SummaryFormatter {
         val c = s.cornering
         if (c.count > 0) {
             add(fmt("↪️ **%d corners** (%d L / %d R) · max %.2f g · speed kept %.0f%%", c.count, c.left, c.right, c.maxLateralG, c.speedKeptPct))
+            cornerSideHint(c.speedKeptLeftPct, c.speedKeptRightPct)?.let { add("  • $it") }
         }
         val d = s.descending
         if (d.timeSec >= 30) {
@@ -113,7 +134,44 @@ object SummaryFormatter {
             )
         }
         s.roughnessAvg?.let { add(fmt("〰️ Roughness avg %.2f g", it)) }
+        s.lapComparison?.let { add(lapComparisonLine(it)) }
     }
+
+    /** "You lose more speed in right-handers (88% vs 96% kept)", or null when both sides are alike. */
+    fun cornerSideHint(left: Double?, right: Double?): String? {
+        if (left == null || right == null) return null
+        if (kotlin.math.abs(left - right) < Insights.SIDE_DIFFERENCE_PCT) {
+            return fmt("Left and right corners alike (%.0f%% / %.0f%% speed kept)", left, right)
+        }
+        val (weak, worse, better) = if (left < right) Triple("left", left, right) else Triple("right", right, left)
+        return fmt("You lose more speed in %s-handers (%.0f%% vs %.0f%% kept)", weak, worse, better)
+    }
+
+    fun lapComparisonLine(l: LapComparison): String = buildString {
+        append(fmt("🏁 **%d laps**", l.laps))
+        if (l.comparable < l.laps) append(fmt(" (%d comparable)", l.comparable))
+        append(" · fastest Lap ${l.fastestLap} ${duration(l.fastestSec)} · median ${duration(l.medianSec)}")
+        append(fmt(" · smoothest Lap %d (Flow %.1f)", l.smoothestLap, l.smoothestFlow))
+        l.trendPct?.let {
+            append(
+                when {
+                    it > 2.0 -> fmt(" · last laps %.0f%% slower", it)
+                    it < -2.0 -> fmt(" · last laps %.0f%% faster", -it)
+                    else -> " · steady pace"
+                },
+            )
+        }
+    }
+
+    fun brakingSpotLines(spots: List<BrakingSpot>, units: Units, mapLinks: Boolean): List<String> = spots.mapIndexed { i, b ->
+        val where = listOfNotNull(b.segment, "at ${units.distance(b.distanceM)} (${duration(b.offsetSec)})").joinToString(" · ")
+        val speeds = "${units.speed(b.speedBeforeMs).substringBefore(' ')}→${units.speed(b.speedAfterMs)}"
+        val link = if (mapLinks && b.lat != null && b.lon != null) " · [map](${osmLink(b.lat, b.lon)})" else ""
+        "${i + 1}. $where · ${units.meters(b.flowM)} braking · $speeds$link"
+    }
+
+    fun osmLink(lat: Double, lon: Double): String =
+        fmt("https://www.openstreetmap.org/?mlat=%.5f&mlon=%.5f#map=18/%.5f/%.5f", lat, lon, lat, lon)
 
     /** RockShox Flight Attendant, SRAM AXS and power meter; nothing when none was paired. */
     fun bikeLines(s: RideSummary): List<String> = buildList {

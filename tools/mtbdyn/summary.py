@@ -6,6 +6,7 @@ import sys
 from dataclasses import asdict
 
 from .analysis import detect_corners, max_lateral_g, split_segments
+from .insights import braking_spots, corner_sides, lap_comparison
 from .loaders import _num
 from .model import Ride, Sample
 from .scoring import WINDOW, air_score, difficulty_score, flow_score, mtb_score, smoothness_score
@@ -126,6 +127,7 @@ def summarize(ride: Ride, min_elev: float = 15.0) -> dict:
             if a <= b:
                 laps.append(range_stats(ride, n + 1, "LAP", f"Lap {n + 1}", a, b, corners))
     kept = [100.0 * c["min"] / c["entry"] for c in corners if c["entry"] > 0.5]
+    kept_left, kept_right = corner_sides(corners)
     karoo_corners = _num(ride.session.get("mtb_corners"))
     jumps = sorted(ride.jumps, key=lambda j: j.t)
     return {
@@ -156,6 +158,7 @@ def summarize(ride: Ride, min_elev: float = 15.0) -> dict:
             "gps_count": len(corners), "left": sum(1 for c in corners if c["angle"] > 0),
             "right": sum(1 for c in corners if c["angle"] < 0),
             "speed_kept_pct": sum(kept) / len(kept) if kept else 0.0,
+            "speed_kept_left_pct": kept_left, "speed_kept_right_pct": kept_right,
             "max_lat_g": max_lateral_g(ride.samples),
             "list": corners,
         },
@@ -169,6 +172,8 @@ def summarize(ride: Ride, min_elev: float = 15.0) -> dict:
         "roughness_avg": sum(rough) / len(rough) if rough else None,
         "score": {"total": mtb_score(diff, smooth, air), "difficulty": diff, "smoothness": smooth, "air": air},
         "segments": segments, "laps": laps,
+        "lap_comparison": lap_comparison(laps),
+        "braking_spots": braking_spots(ride, segments),
         "sram": {
             "suspension": suspension_stats(ride, kinds, seg_ranges),
             "drivetrain": drivetrain_stats(ride, kinds, seg_ranges),

@@ -63,7 +63,9 @@ class RideNotifier(
             return SendResult(false, 0, "invalid ntfy topic")
         }
         store.setNtfyStatus(ride, NtfyStatus(NtfyStatus.PENDING))
-        val text = SummaryFormatter.markdown(summary, units, runCatching { notices(units) }.getOrDefault(emptyList()))
+        val text = SummaryFormatter.markdown(
+            summary, units, runCatching { notices(units) }.getOrDefault(emptyList()), mapLinks = settings.ntfyMapLinks,
+        )
         val request = NtfyRequest.message(target, SummaryFormatter.title(summary), text)
         val result = sender.send(request, waitForConnection, timeoutMs)
         val state = when {

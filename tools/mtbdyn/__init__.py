@@ -26,14 +26,15 @@ Modules
   sram      Flight Attendant, AXS, power    summary   the ride summary
   report    console, CSV, HTML              imu       raw sensor log replay
   history   across rides, service           icu       intervals.icu client
+  insights  laps, braking spots, corner sides
   cli       command line (tools/mtb_analyze.py)
 """
 from __future__ import annotations
 
-from . import analysis, cli, history, icu, imu, loaders, model, report, scoring, sram, summary  # noqa: F401
+from . import analysis, cli, history, icu, imu, insights, loaders, model, report, scoring, sram, summary  # noqa: F401
 
 __all__: list[str] = []
-for _module in (scoring, model, loaders, analysis, sram, summary, report, imu, history, icu, cli):
+for _module in (scoring, model, loaders, analysis, insights, sram, summary, report, imu, history, icu, cli):
     for _name, _value in vars(_module).items():
         if not _name.startswith("__") and not isinstance(_value, type(_module)):
             globals()[_name] = _value

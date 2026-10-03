@@ -6,6 +6,7 @@ import datetime as dt
 import json
 import os
 
+from .insights import corner_side_hint
 from .model import Ride
 from .scoring import WINDOW, flow_score
 from .sram import UNDER_LOAD_W, terrain_kinds
@@ -123,6 +124,9 @@ def report_text(s: dict, u: Units) -> str:
     from_list = c["source"] == "GPS track" or c.get("list_from_karoo")
     track = f"{c['left']} L / {c['right']} R" if from_list else f"GPS track {c['gps_count']}: {c['left']} L / {c['right']} R"
     lines.append(f"  Corners {c['count']} ({c['source']}; {track}) · speed kept {c['speed_kept_pct']:.0f} % · max {c['max_lat_g']:.2f} g")
+    hint = corner_side_hint(c.get("speed_kept_left_pct"), c.get("speed_kept_right_pct"))
+    if hint:
+        lines.append(f"        {hint}")
     d = s["descending"]
     lines.append(f"  Descents {hms(d['time_s'])} · {u.elev(d['drop_m'])} ↓ · avg {u.speed(d['avg_speed_ms'])} · max {u.speed(d['max_speed_ms'])} · braking {d['braking_pct']:.0f} %")
     if s["roughness_avg"] is not None:
@@ -150,8 +154,25 @@ def report_text(s: dict, u: Units) -> str:
                          f"{r['avg_grade_pct']:>5.1f}% {u.speed(r['avg_speed_ms']):>11} {r['grit_k']:>6.1f} {r['flow_score']:>5.1f} "
                          f"{r['braking_pct']:>5.0f}% {r['jumps']:>5}" + more)
 
+    spots = s.get("braking_spots") or []
+    if spots:
+        lines.append("")
+        lines.append("Where Flow was lost (most unnecessary braking)")
+        for n, b in enumerate(spots, 1):
+            where = " · ".join(x for x in (b["segment"], f"at {u.dist(b['distance_m'])} ({hms(b['offset_s'])})") if x)
+            pos = f" · {b['lat']:.5f}, {b['lon']:.5f}" if b.get("lat") is not None else ""
+            lines.append(f"  {n}. {where} · {u.short(b['flow_m'])} braking · {u.speed(b['speed_before_ms'])} → {u.speed(b['speed_after_ms'])}{pos}")
+
     table(s["segments"], "Trail segments")
     table(s["laps"], "Laps")
+    lc = s.get("lap_comparison")
+    if lc:
+        trend = ""
+        if lc["trend_pct"] is not None:
+            t = lc["trend_pct"]
+            trend = f" · last laps {t:.0f}% slower" if t > 2 else f" · last laps {-t:.0f}% faster" if t < -2 else " · steady pace"
+        lines.append(f"  {lc['comparable']} of {lc['laps']} laps comparable · fastest Lap {lc['fastest_lap']} {hms(lc['fastest_s'])} · "
+                     f"median {hms(lc['median_s'])} · smoothest Lap {lc['smoothest_lap']} (Flow {lc['smoothest_flow']:.1f}){trend}")
     if j["list"]:
         lines.append("")
         lines.append("Jumps")
@@ -224,7 +245,8 @@ HTML_TEMPLATE = """<!doctype html>
 <div id="bike"><h2>Suspension &amp; gears</h2><div class="chart" id="fagears"></div>
 <h2>Cog usage by terrain</h2><div class="chart" id="cogs"></div></div>
 <h2>Trail segments</h2><div class="tw"><table id="segments"></table></div>
-<h2>Laps</h2><div class="tw"><table id="laps"></table></div>
+<h2>Where Flow was lost</h2><div class="tw"><table id="spots"></table></div>
+<h2>Laps</h2><p class="muted" id="lapcmp"></p><div class="tw"><table id="laps"></table></div>
 <p class="muted" id="note"></p>
 </main>
 <script>
@@ -234,6 +256,7 @@ const fg = dark ? '#e9ecee' : '#1b1b1b', grid = dark ? '#2c3236' : '#e2e6e8';
 const base = {paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{color:fg}, margin:{l:50,r:50,t:10,b:40},
   xaxis:{title:'Distance ('+D.u.dist+')', gridcolor:grid}, legend:{orientation:'h', y:1.12}};
 const S = D.summary, R = D.rows;
+const plot = (...args) => window.Plotly && Plotly.newPlot(...args);
 document.getElementById('sub').textContent = S.start.slice(0,16).replace('T',' ') + ' UTC · ' + (S.device || S.source) +
   (S.estimated ? ' · Grit/Flow estimated from GPS (no MTB Dynamics data in file)' : '');
 const card = (label, value) => `<div class="card"><span>${label}</span><b>${value}</b></div>`;
@@ -242,6 +265,8 @@ document.getElementById('cards').innerHTML = [
   card('MTB score', S.score.total.toFixed(0)), card('Grit (kGrit)', f1(S.grit.total_k)), card('Flow', f2(S.flow.score)),
   card('Jumps', S.jumps.count), card('Max airtime', S.jumps.longest ? f2(S.jumps.longest.air)+' s' : '–'),
   card('Corners', S.cornering.count), card('Max corner g', f2(S.cornering.max_lat_g)),
+  ...(S.cornering.speed_kept_left_pct != null && S.cornering.speed_kept_right_pct != null
+    ? [card('Speed kept L / R', S.cornering.speed_kept_left_pct.toFixed(0)+' / '+S.cornering.speed_kept_right_pct.toFixed(0)+' %')] : []),
   card('Descent braking', S.descending.braking_pct.toFixed(0)+' %'),
   card('Distance', (S.distance_m*D.u.distF).toFixed(1)+' '+D.u.dist), card('Ascent', (S.ascent_m*D.u.elevF).toFixed(0)+' '+D.u.elev),
 ].concat(bikeCards()).join('');
@@ -257,7 +282,7 @@ function bikeCards() {
 
 // Map coloured by a metric
 const pts = R.filter(r => r.lat != null && r.lon != null);
-if (pts.length) {
+if (pts.length && window.L) {  // tables still render when the map library cannot load (offline)
   const map = L.map('map'); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '© OpenStreetMap'}).addTo(map);
   let layer = null;
   const ramp = t => { t = Math.max(0, Math.min(1, t)); const h = (1 - t) * 120; return `hsl(${h},85%,45%)`; };
@@ -274,6 +299,8 @@ if (pts.length) {
     }
     for (const j of S.jumps.list) if (j.lat != null) L.circleMarker([j.lat, j.lon], {radius: 5 + j.air * 6, color: '#ff6d00', fillOpacity: .8})
       .bindPopup(`<b>Jump ${j.n}</b><br>${j.air.toFixed(2)} s air<br>${(j.distance*D.u.shortF).toFixed(1)} ${D.u.short}<br>~${(j.height*D.u.shortF).toFixed(1)} ${D.u.short} high`).addTo(layer);
+    (S.braking_spots || []).forEach((b, i) => { if (b.lat != null) L.circleMarker([b.lat, b.lon], {radius: 9, color: '#c62828', fillOpacity: .5})
+      .bindPopup(`<b>Braking spot ${i + 1}</b><br>${(b.flow_m*D.u.shortF).toFixed(0)} ${D.u.short} unnecessary braking`).addTo(layer); });
     layer.addTo(map);
     document.querySelectorAll('#colorBy button').forEach(b => b.classList.toggle('on', b.dataset.k === key));
   };
@@ -289,21 +316,21 @@ const segShapes = S.segments.filter(s => s.type !== 'FLAT').map(s => {
   return {type:'rect', xref:'x', yref:'paper', x0:x[Math.max(0,a)], x1:x[b < 0 ? x.length-1 : b], y0:0, y1:1, line:{width:0},
           fillcolor: s.type === 'CLIMB' ? 'rgba(216,67,21,.08)' : 'rgba(21,101,192,.10)'};
 });
-Plotly.newPlot('profile', [
+plot('profile', [
   {x, y: R.map(r => r.alt == null ? null : r.alt * D.u.elevF), name: 'Altitude', fill: 'tozeroy', line: {color: '#78909c'}},
   {x: S.jumps.list.map(j => { const i = R.findIndex(r => r.t >= j.t); return x[Math.max(0, i)]; }),
    y: S.jumps.list.map(j => { const i = R.findIndex(r => r.t >= j.t); const a = R[Math.max(0, i)].alt; return a == null ? null : a * D.u.elevF; }),
    mode: 'markers', name: 'Jumps', marker: {color: '#ff6d00', size: S.jumps.list.map(j => 6 + j.air * 10)}},
 ], {...base, shapes: segShapes, yaxis: {title: 'Altitude ('+D.u.elev+')', gridcolor: grid}}, {responsive: true, displaylogo: false});
-Plotly.newPlot('gritflow', [
+plot('gritflow', [
   {x, y: R.map(r => r.grit60), name: 'Grit 60 s (grit/s)', line: {color: '#d84315'}},
   {x, y: R.map(r => r.flow60), name: 'Flow 60 s', yaxis: 'y2', line: {color: '#1565c0'}},
 ], {...base, yaxis: {title: 'Grit / s', gridcolor: grid}, yaxis2: {title: 'Flow', overlaying: 'y', side: 'right', showgrid: false}}, {responsive: true, displaylogo: false});
-Plotly.newPlot('brakes', [
+plot('brakes', [
   {x, y: R.map(r => r.speed * D.u.speedF), name: 'Speed ('+D.u.speed+')', line: {color: '#455a64'}},
   {x, y: R.map(r => r.brake), name: 'Braking (m/s²)', yaxis: 'y2', type: 'bar', marker: {color: R.map(r => r.flow > 0 ? '#ff6d00' : '#90a4ae')}},
 ], {...base, bargap: 0, yaxis: {title: 'Speed', gridcolor: grid}, yaxis2: {title: 'm/s² (orange = unnecessary)', overlaying: 'y', side: 'right', showgrid: false}}, {responsive: true, displaylogo: false});
-if (S.jumps.list.length) Plotly.newPlot('jumps', [{
+if (S.jumps.list.length) plot('jumps', [{
   x: S.jumps.list.map(j => '#' + j.n), y: S.jumps.list.map(j => j.air), type: 'bar', marker: {color: S.jumps.list.map(j => j.height), colorscale: 'Oranges', showscale: true, colorbar: {title: 'height'}},
   text: S.jumps.list.map(j => `${(j.distance*D.u.shortF).toFixed(1)} ${D.u.short} · ~${(j.height*D.u.shortF).toFixed(1)} ${D.u.short} · ${(j.speed*D.u.speedF).toFixed(0)} ${D.u.speed}`),
   hovertemplate: '%{x}: %{y:.2f} s<br>%{text}<extra></extra>'}], {...base, xaxis: {title: 'Jump'}, yaxis: {title: 'Airtime (s)', gridcolor: grid}}, {responsive: true, displaylogo: false});
@@ -316,11 +343,11 @@ if (R.some(r => r.fa != null || r.cog != null)) {
   for (let code = 0; code < 3; code++) traces.push({x, y: R.map(r => r.fa === code ? 1 : null), type: 'bar', name: 'FA ' + faNames[code],
     marker: {color: faColors[code]}, hoverinfo: 'name', yaxis: 'y'});
   if (R.some(r => r.cog != null)) traces.push({x, y: R.map(r => r.cog), name: 'Rear cog (T)', yaxis: 'y2', line: {shape: 'hv', color: '#455a64', width: 1.5}});
-  Plotly.newPlot('fagears', traces, {...base, barmode: 'stack', bargap: 0, yaxis: {visible: false, range: [0, 1]},
+  plot('fagears', traces, {...base, barmode: 'stack', bargap: 0, yaxis: {visible: false, range: [0, 1]},
     yaxis2: {title: 'Cog teeth', overlaying: 'y', side: 'right', autorange: 'reversed'}}, {responsive: true, displaylogo: false});
   const kinds = ['CLIMB', 'FLAT', 'DESCENT'], kindColor = {CLIMB: '#d84315', FLAT: '#90a4ae', DESCENT: '#1565c0'};
   const cogs = [...new Set(R.filter(r => r.cog != null).map(r => r.cog))].sort((a, b) => a - b);
-  if (cogs.length) Plotly.newPlot('cogs', kinds.map(k => ({x: cogs.map(c => c + 'T'), type: 'bar', name: k.toLowerCase(),
+  if (cogs.length) plot('cogs', kinds.map(k => ({x: cogs.map(c => c + 'T'), type: 'bar', name: k.toLowerCase(),
     marker: {color: kindColor[k]}, y: cogs.map(c => R.filter(r => r.cog === c && r.kind === k && r.speed >= 1).length / 60)})),
     {...base, barmode: 'stack', xaxis: {title: 'Rear cog'}, yaxis: {title: 'Minutes', gridcolor: grid}}, {responsive: true, displaylogo: false});
   else document.getElementById('cogs').outerHTML = '<p class="muted">No gear data.</p>';
@@ -342,6 +369,15 @@ const tableHtml = rows => rows.length ? '<tr><th>#</th><th>Name</th><th>Dist</th
     `<td>${r.flow_score.toFixed(1)}</td><td>${r.braking_pct.toFixed(0)}%</td><td>${r.jumps}</td><td>${r.corners}</td>` + bikeCells(rows, r) + '</tr>').join('') : '<tr><td class="muted">none</td></tr>';
 document.getElementById('segments').innerHTML = tableHtml(S.segments);
 document.getElementById('laps').innerHTML = tableHtml(S.laps);
+const hms = s => new Date(s*1000).toISOString().substr(11,8);
+const lc = S.lap_comparison;
+document.getElementById('lapcmp').textContent = lc ? `${lc.comparable} of ${lc.laps} laps comparable · fastest Lap ${lc.fastest_lap} ${hms(lc.fastest_s)} · median ${hms(lc.median_s)} · smoothest Lap ${lc.smoothest_lap} (Flow ${lc.smoothest_flow.toFixed(1)})` +
+  (lc.trend_pct == null ? '' : lc.trend_pct > 2 ? ` · last laps ${lc.trend_pct.toFixed(0)}% slower` : lc.trend_pct < -2 ? ` · last laps ${(-lc.trend_pct).toFixed(0)}% faster` : ' · steady pace') : '';
+const spots = S.braking_spots || [];
+document.getElementById('spots').innerHTML = spots.length ? '<tr><th>#</th><th>Where</th><th>Dist</th><th>Time</th><th>Braking</th><th>Speed</th><th>Map</th></tr>' +
+  spots.map((b, i) => `<tr><td>${i + 1}</td><td>${b.segment || ''}</td><td>${(b.distance_m*D.u.distF).toFixed(2)}</td><td>${hms(b.offset_s)}</td>` +
+    `<td>${(b.flow_m*D.u.shortF).toFixed(0)} ${D.u.short}</td><td>${(b.speed_before_ms*D.u.speedF).toFixed(0)} → ${(b.speed_after_ms*D.u.speedF).toFixed(0)}</td>` +
+    `<td>${b.lat != null ? `<a href="https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=18/${b.lat}/${b.lon}">map</a>` : ''}</td></tr>`).join('') : '<tr><td class="muted">none</td></tr>';
 document.getElementById('note').textContent = 'Grit: difficulty from grade, turns and roughness (higher = harder). Flow: unnecessary braking per 100 m (lower = smoother). Generated by tools/mtb_analyze.py.';
 </script></body></html>
 """

@@ -58,6 +58,7 @@ class MainActivity : Activity() {
     private lateinit var ntfyPriority: Spinner
     private lateinit var minMinutes: EditText
     private lateinit var ntfyAttach: Switch
+    private lateinit var ntfyMapLinks: Switch
     private lateinit var sensitivity: Spinner
     private lateinit var jumpAlerts: Switch
     private lateinit var jumpBeep: Switch
@@ -92,6 +93,7 @@ class MainActivity : Activity() {
         ntfyPriority = findViewById(R.id.ntfy_priority)
         minMinutes = findViewById(R.id.min_minutes)
         ntfyAttach = findViewById(R.id.ntfy_attach)
+        ntfyMapLinks = findViewById(R.id.ntfy_map_links)
         sensitivity = findViewById(R.id.sensitivity)
         jumpAlerts = findViewById(R.id.jump_alerts)
         jumpBeep = findViewById(R.id.jump_beep)
@@ -195,6 +197,7 @@ class MainActivity : Activity() {
         ntfyPriority.setSelection(settings.ntfyPriority - 1)
         minMinutes.setText(settings.minNotifyMinutes.toString())
         ntfyAttach.isChecked = settings.ntfyAttachJson
+        ntfyMapLinks.isChecked = settings.ntfyMapLinks
         sensitivity.setSelection(settings.sensitivity.ordinal)
         jumpAlerts.isChecked = settings.jumpAlerts
         jumpBeep.isChecked = settings.jumpBeep
@@ -224,6 +227,7 @@ class MainActivity : Activity() {
         settings.ntfyPriority = ntfyPriority.selectedItemPosition + 1
         settings.minNotifyMinutes = minMinutes.text.toString().toIntOrNull() ?: settings.minNotifyMinutes
         settings.ntfyAttachJson = ntfyAttach.isChecked
+        settings.ntfyMapLinks = ntfyMapLinks.isChecked
         settings.sensitivity = Sensitivity.entries[sensitivity.selectedItemPosition.coerceIn(0, Sensitivity.entries.lastIndex)]
         settings.jumpAlerts = jumpAlerts.isChecked
         settings.jumpBeep = jumpBeep.isChecked
