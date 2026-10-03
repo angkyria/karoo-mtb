@@ -5,9 +5,9 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import io.github.angkyria.karoomtb.R
-import io.github.angkyria.karoomtb.engine.RideAlert
 import io.github.angkyria.karoomtb.engine.Jump
 import io.github.angkyria.karoomtb.engine.MtbEngine
+import io.github.angkyria.karoomtb.engine.RideAlert
 import io.github.angkyria.karoomtb.engine.RideSummary
 import io.github.angkyria.karoomtb.engine.SummaryMeta
 import io.github.angkyria.karoomtb.fit.MtbFitFields
