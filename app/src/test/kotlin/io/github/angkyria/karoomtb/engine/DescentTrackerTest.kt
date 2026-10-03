@@ -69,9 +69,10 @@ class DescentTrackerTest {
         sim.ride(80, speed = { 6.0 }, grade = { -10.0 }, altitude = { alt - 0.6 * (it + 1) }, location = { GeoPoint(46.0 - it * 5e-5, 8.0015) })
         alt -= 48.0
         sim.ride(150, speed = { 5.0 }, altitude = { alt }, location = { GeoPoint(45.996, 8.0015 + it * 5e-5) })
-        val track = descentAlerts(sim).single().track
-        assertTrue("points ${track.size}", track.size in 15..40)
-        assertTrue(track.first().lat > track.last().lat)
+        val track = descentAlerts(sim).single().track!!
+        assertTrue("core points ${track.core.size}", track.core.size in 35..70)
+        assertTrue("margins", track.coreStart > 0 && track.coreEnd < track.points.lastIndex)
+        assertTrue(track.core.first().lat > track.core.last().lat)
     }
 
     @Test

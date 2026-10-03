@@ -127,14 +127,52 @@ enum class SuspensionMatch { NONE, OK, LOCKED_ROUGH, OPEN_HARD_CLIMB }
 @Serializable
 data class GeoPoint(val lat: Double, val lon: Double)
 
+/** A point of a ride's GPS track: position and seconds since the ride start (wall clock). */
+@Serializable
+data class TrackPoint(val lat: Double, val lon: Double, val t: Double)
+
+/**
+ * GPS track of a descent ([segment] = [SegmentStats.index], 0 live): the descending core
+ * [coreStart]..[coreEnd] (point indices) plus up to 150 m before and after, so a trail is
+ * recognised however the descent was cut.
+ */
+@Serializable
+data class SegmentTrack(val segment: Int, val points: List<TrackPoint>, val coreStart: Int = 0, val coreEnd: Int = points.lastIndex) {
+    val core: List<TrackPoint> get() = points.subList(coreStart, coreEnd + 1)
+}
+
+/** How a descent compared with earlier runs of the same trail (see the trails package). */
+@Serializable
+data class TrailRunResult(
+    /** The descent (segment name) this run was. */
+    val descent: String,
+    val trailId: Int,
+    val trailName: String,
+    /** Time between the trail's start and end points. */
+    val timeSec: Double,
+    /** 1 = fastest of [runs] (this one included). */
+    val rank: Int,
+    val runs: Int,
+    /** Best time before this run, null on a new trail. */
+    val previousBestSec: Double? = null,
+    val flowScore: Double,
+    val previousBestFlow: Double? = null,
+    val newTrail: Boolean = false,
+    val distanceM: Double = 0.0,
+    val dropM: Double = 0.0,
+) {
+    val pb: Boolean get() = previousBestSec != null && timeSec < previousBestSec
+    val flowPb: Boolean get() = previousBestFlow != null && flowScore < previousBestFlow
+}
+
 /** In-ride events raised by [MtbEngine.pollAlerts]. */
 sealed class RideAlert {
     data object LockedOnRough : RideAlert()
     data class ShiftDown(val easierGears: Int) : RideAlert()
     data class BatteryLow(val component: String, val status: String) : RideAlert()
 
-    /** The bottom of a descent was reached: its stats and GPS track (every ~20 m, empty without GPS). */
-    data class DescentFinished(val stats: SegmentStats, val track: List<GeoPoint>) : RideAlert()
+    /** The bottom of a descent was reached: its stats and GPS track (every ~10 m, null without GPS). */
+    data class DescentFinished(val stats: SegmentStats, val track: SegmentTrack?) : RideAlert()
 }
 
 /** The descent in progress (live, see [DescentTracker]). */
@@ -482,4 +520,8 @@ data class RideSummary(
     val bike: BikeStats = BikeStats(),
     val lapComparison: LapComparison? = null,
     val brakingSpots: List<BrakingSpot> = emptyList(),
+    /** GPS tracks of the descents (for trail recognition). */
+    val descentTracks: List<SegmentTrack> = emptyList(),
+    /** Descents recognised as trails ridden before (filled in when the ride ends). */
+    val trailRuns: List<TrailRunResult> = emptyList(),
 )

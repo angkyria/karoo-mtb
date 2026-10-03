@@ -636,23 +636,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
                 d.number, "DESCENT", "Descent ${d.number}", samples, d.start, d.end, jumps, corners, rideStartWallMs, shifts, riderWeightKg,
             )
             lastDescent = stats
-            pendingAlerts += RideAlert.DescentFinished(stats, track(d.start, d.end))
+            pendingAlerts += RideAlert.DescentFinished(stats, Tracks.withMargins(0, samples, d.start, d.end, rideStartWallMs))
         }
-    }
-
-    /** GPS points of samples [from]..[to], one every [TRACK_SPACING_M] metres. */
-    private fun track(from: Int, to: Int): List<GeoPoint> {
-        val out = ArrayList<GeoPoint>()
-        var lastDist = Double.NEGATIVE_INFINITY
-        for (i in from..to) {
-            val s = samples[i]
-            if (s.lat.isNaN() || s.lon.isNaN()) continue
-            if (s.distanceM - lastDist >= TRACK_SPACING_M || i == to) {
-                out += GeoPoint(s.lat, s.lon)
-                lastDist = s.distanceM
-            }
-        }
-        return out
     }
 
     private fun liveDescentLocked(): LiveDescent? {
@@ -920,6 +905,5 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         private const val SPEED_HISTORY_MS = 10_000L
         private const val CORNER_FEED_SEC = 0.1
         private const val ALTITUDE_SETTLE_MS = 3_000L
-        private const val TRACK_SPACING_M = 20.0
     }
 }

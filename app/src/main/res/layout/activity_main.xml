@@ -250,6 +250,20 @@
 
         <TextView
             style="@style/Section"
+            android:text="Trails" />
+
+        <TextView
+            android:id="@+id/trail_summary"
+            style="@style/Label" />
+
+        <LinearLayout
+            android:id="@+id/trail_items"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            style="@style/Section"
             android:text="Service tracker" />
 
         <TextView

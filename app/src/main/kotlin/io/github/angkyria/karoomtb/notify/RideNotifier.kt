@@ -109,7 +109,8 @@ class RideNotifier(
 
     /** The full jump list can be long; keep the attachment below the Karoo's 100 KB limit. */
     private fun trimmed(summary: RideSummary): RideSummary {
-        var s = summary
+        // The descent GPS tracks are only for trail recognition on the Karoo.
+        var s = summary.copy(descentTracks = emptyList())
         while (RideStore.json.encodeToString(s).length > NtfyRequest.MAX_BODY_BYTES && s.jumps.list.isNotEmpty()) {
             s = s.copy(jumps = s.jumps.copy(list = s.jumps.list.take(s.jumps.list.size / 2)))
         }

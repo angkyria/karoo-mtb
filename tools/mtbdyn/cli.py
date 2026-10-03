@@ -8,7 +8,7 @@ import sys
 import webbrowser
 from typing import Callable
 
-from .history import history, history_text, load_any, ride_paths, write_history_csv, write_history_html
+from .history import history, history_text, load_any, ride_paths, trails_text, write_history_csv, write_history_html
 from .icu import IntervalsIcu, description_block, merged_description, parse_field_map, summary_value
 from .imu import imu_report
 from .loaders import _num, load_fit, load_karoo_dir, read_fit_bytes, rescore
@@ -47,8 +47,14 @@ def main(argv: list[str] | None = None) -> int:
                         "or folders containing them, e.g. a pulled rides/ folder")
     p.add_argument("--icu-history", type=int, metavar="DAYS", help="the same across the rides of the last DAYS on intervals.icu")
     p.add_argument("--service-json", help="service.json pulled from the Karoo: service status from the Karoo's tracker")
+    p.add_argument("--trails-json", help="trails.json pulled from the Karoo: trails with runs and personal bests")
     a = p.parse_args(argv)
     units = Units(a.imperial)
+
+    if a.trails_json:
+        print(trails_text(a.trails_json, units))
+        if not (a.history or a.icu_history or a.fit or a.karoo_dir or a.icu):
+            return 0
 
     if a.history or a.icu_history:
         sources: list[tuple[str, Callable[[], Ride]]] = [(path, (lambda path=path: load_any(path))) for path in ride_paths(a.history or [])]

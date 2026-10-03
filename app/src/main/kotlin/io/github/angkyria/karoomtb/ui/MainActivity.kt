@@ -32,6 +32,7 @@ import io.github.angkyria.karoomtb.notify.SummaryFormatter
 import io.github.angkyria.karoomtb.notify.Units
 import io.github.angkyria.karoomtb.service.ServiceTracker
 import io.github.angkyria.karoomtb.storage.RideStore
+import io.github.angkyria.karoomtb.trails.TrailLibrary
 import io.hammerhead.karooext.KarooSystemService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -76,6 +77,7 @@ class MainActivity : Activity() {
     private lateinit var lastRide: TextView
     private lateinit var service: ServiceSection
     private lateinit var panels: PanelSection
+    private lateinit var trails: TrailSection
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,6 +113,7 @@ class MainActivity : Activity() {
         lastRide = findViewById(R.id.last_ride)
         service = ServiceSection(this, findViewById(R.id.service_items), findViewById(R.id.service_summary), MtbRuntime.service, ::units)
         panels = PanelSection(this, findViewById(R.id.panel_items), settings).also { it.render() }
+        trails = TrailSection(this, findViewById(R.id.trail_items), findViewById(R.id.trail_summary), MtbRuntime.trails, ::units)
 
         ntfyPriority.adapter = adapter(listOf("1 · min", "2 · low", "3 · default", "4 · high", "5 · urgent"))
         sensitivity.adapter = adapter(listOf("Low · only clear jumps", "Medium", "High · small hops too"))
@@ -121,7 +124,7 @@ class MainActivity : Activity() {
             "FIT developer fields: mtb_grit, mtb_flow, mtb_rough, mtb_lat_g, mtb_brake, mtb_jump_air, " +
             "mtb_jump_dist, mtb_jump_height (records) and mtb_total_grit, mtb_flow_score, mtb_jumps, … (session); " +
             "with Flight Attendant / AXS also mtb_fa_open_desc, mtb_fa_lock_rough, mtb_shifts, mtb_climb_power, … " +
-            "Service totals: ${ServiceTracker.FILE_NAME} next to the rides folder."
+            "Service totals: ${ServiceTracker.FILE_NAME}, trails: ${TrailLibrary.FILE_NAME}, next to the rides folder."
 
         load()
         val qrUpdater = object : TextWatcher {
@@ -148,6 +151,7 @@ class MainActivity : Activity() {
             if (save()) {
                 testResult.text = "Saved."
                 service.render()
+                trails.render()
             }
         }
         findViewById<Button>(R.id.test).setOnClickListener {
@@ -175,6 +179,7 @@ class MainActivity : Activity() {
         runCatching { karoo.connect() }
         showLastRide()
         service.render()
+        trails.render()
     }
 
     override fun onStop() {
@@ -241,6 +246,7 @@ class MainActivity : Activity() {
         settings.batteryAlerts = alertBattery.isChecked
         service.save()
         panels.save()
+        trails.save()
         return true
     }
 

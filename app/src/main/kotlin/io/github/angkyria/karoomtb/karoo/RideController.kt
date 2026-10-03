@@ -224,10 +224,11 @@ class RideController(
         tickJob?.cancelAndJoin()
         tickJob = null
         releaseRideResources()
-        val summary = engine.finish(System.currentTimeMillis(), SummaryMeta(appVersion, profile?.name, deviceName(), ascentM, descentM))
+        val finished = engine.finish(System.currentTimeMillis(), SummaryMeta(appVersion, profile?.name, deviceName(), ascentM, descentM))
         // After finish(): the last seconds, jumps and corners are only final now.
         flushStorage()
         rideDir = null
+        val summary = withTrails(finished)
         store.saveSummary(dir, summary)
         MtbRuntime.live.value = engine.live()
         announce(summary)
@@ -255,7 +256,7 @@ class RideController(
             meta.startWallMs, lastWall, SystemClock.elapsedRealtime(), samples, store.loadJumps(dir), store.loadCorners(dir),
             restoredShifts = store.loadShifts(dir),
         )
-        val summary = replay.finish(lastWall + 1000, SummaryMeta(appVersion, meta.profileName, meta.device))
+        val summary = withTrails(replay.finish(lastWall + 1000, SummaryMeta(appVersion, meta.profileName, meta.device)))
         store.saveSummary(dir, summary)
         countService(summary)
         Log.i(TAG, "finished ride ${dir.name} from storage")
@@ -375,12 +376,14 @@ class RideController(
                 )
             }
             is RideAlert.DescentFinished -> if (settings.descentAlerts) {
+                // A trail ridden before: time between its start and end points, rank and PB.
+                val trail = runCatching { MtbRuntime.trails.compare(alert.stats, alert.track) }.getOrNull()
                 karoo.dispatch(
                     InRideAlert(
                         id = "mtb-descent", icon = R.drawable.ic_descent,
-                        title = SummaryFormatter.descentAlertTitle(alert.stats, MtbRuntime.units),
-                        detail = SummaryFormatter.descentAlertDetail(alert.stats), autoDismissMs = 8_000,
-                        backgroundColor = R.color.alert_info_bg, textColor = R.color.alert_text,
+                        title = SummaryFormatter.descentAlertTitle(alert.stats, MtbRuntime.units, trail),
+                        detail = SummaryFormatter.descentAlertDetail(alert.stats, MtbRuntime.units, trail), autoDismissMs = 8_000,
+                        backgroundColor = if (trail?.pb == true) R.color.alert_jump_bg else R.color.alert_info_bg, textColor = R.color.alert_text,
                     ),
                 )
             }
@@ -427,6 +430,14 @@ class RideController(
                 ),
             )
         }
+    }
+
+    /** Matches the ride's descents with the trail library (personal bests); the summary carries the results. */
+    private fun withTrails(summary: RideSummary): RideSummary {
+        val runs = runCatching { MtbRuntime.trails.addRide(summary) }
+            .onFailure { Log.w(TAG, "trail library failed", it) }
+            .getOrDefault(emptyList())
+        return if (runs.isEmpty()) summary else summary.copy(trailRuns = runs)
     }
 
     /** Adds the ride to the service tracker; tells the rider when something just became due. */

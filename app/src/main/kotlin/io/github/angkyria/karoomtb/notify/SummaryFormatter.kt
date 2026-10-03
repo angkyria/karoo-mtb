@@ -6,6 +6,7 @@ import io.github.angkyria.karoomtb.engine.Jump
 import io.github.angkyria.karoomtb.engine.LapComparison
 import io.github.angkyria.karoomtb.engine.RideSummary
 import io.github.angkyria.karoomtb.engine.SegmentStats
+import io.github.angkyria.karoomtb.engine.TrailRunResult
 import io.github.angkyria.karoomtb.notify.Units.Companion.duration
 import io.github.angkyria.karoomtb.notify.Units.Companion.fmt
 import java.text.SimpleDateFormat
@@ -17,6 +18,7 @@ object SummaryFormatter {
     /** ntfy turns longer messages into attachments; stay below its 4096 byte limit. */
     const val MAX_MESSAGE_BYTES = 3800
     private const val MAX_SEGMENT_LINES = 10
+    private const val MAX_TRAIL_LINES = 6
 
     fun title(summary: RideSummary): String {
         val date = SimpleDateFormat("EEE d MMM HH:mm", Locale.ENGLISH).format(Date(summary.startWallMs))
@@ -25,16 +27,16 @@ object SummaryFormatter {
     }
 
     /**
-     * [notices]: extra lines such as service reminders, shown after the bike section.
-     * [trails]: trail personal-best lines. [mapLinks]: OpenStreetMap links on the braking spots.
+     * [notices]: extra lines such as service reminders, shown after the bike section and the
+     * trail lines. [mapLinks]: OpenStreetMap links on the braking spots.
      */
     fun markdown(
         summary: RideSummary,
         units: Units,
         notices: List<String> = emptyList(),
-        trails: List<String> = emptyList(),
         mapLinks: Boolean = false,
     ): String {
+        val trails = trailLines(summary.trailRuns, units)
         val head = headLines(summary, units) + bikeLines(summary) +
             (if (trails.isNotEmpty()) listOf("") + trails else emptyList()) +
             (if (notices.isNotEmpty()) listOf("") + notices else emptyList())
@@ -93,15 +95,50 @@ object SummaryFormatter {
     fun jumpAlertDetail(jump: Jump, units: Units): String =
         "${units.meters(jump.distanceM)} · ${units.speed(jump.speedMs)} · ${fmt("%.1f g", jump.landingG)} landing"
 
-    /** In-ride alert at the bottom of a descent: "Descent 2 · 4:12 · −182 m". */
-    fun descentAlertTitle(d: SegmentStats, units: Units): String =
-        "${d.name} · ${Units.duration(d.durationSec)} · −${units.elevation(d.elevLossM)}"
+    /**
+     * In-ride alert at the bottom of a descent: "Descent 2 · 4:12 · −182 m", or for a trail ridden
+     * before "PB! Trail 3 · 4:12 (−5 s)" / "Trail 3 · 4:40 · 3rd of 5".
+     */
+    fun descentAlertTitle(d: SegmentStats, units: Units, trail: TrailRunResult? = null): String = when {
+        trail == null -> "${d.name} · ${duration(d.durationSec)} · −${units.elevation(d.elevLossM)}"
+        trail.pb -> "PB! ${trail.trailName} · ${duration(trail.timeSec)} (${signedSeconds(trail.timeSec - trail.previousBestSec!!)})"
+        else -> "${trail.trailName} · ${duration(trail.timeSec)} · ${ordinal(trail.rank)} of ${trail.runs}"
+    }
 
-    fun descentAlertDetail(d: SegmentStats): String = buildString {
+    fun descentAlertDetail(d: SegmentStats, units: Units = Units(), trail: TrailRunResult? = null): String = buildString {
+        if (trail != null) append("−${units.elevation(d.elevLossM)} · ")
         append(fmt("Flow %.1f · brake %.0f%%", d.flowScore, d.brakingPct))
         if (d.jumps > 0) append(fmt(" · %d jump%s", d.jumps, if (d.jumps == 1) "" else "s"))
         if (d.maxLateralG > 0.05) append(fmt(" · max %.2f g", d.maxLateralG))
     }
+
+    /** One line per descent recognised as a trail (personal bests first). */
+    fun trailLines(runs: List<TrailRunResult>, units: Units): List<String> = runs.sortedByDescending { it.pb }.take(MAX_TRAIL_LINES).map { r ->
+        when {
+            r.newTrail -> "🆕 ${r.descent} saved as **${r.trailName}** (${units.distance(r.distanceM)}, −${units.elevation(r.dropM)}): " +
+                "ride it again for a comparison"
+            r.pb -> "🏆 ${r.descent} · ${r.trailName}: **PB ${duration(r.timeSec)}** (was ${duration(r.previousBestSec!!)}) · run ${r.runs} · " +
+                flowText(r)
+            else -> "⏱ ${r.descent} · ${r.trailName}: ${duration(r.timeSec)} · ${ordinal(r.rank)} of ${r.runs} · " +
+                "best ${duration(r.previousBestSec ?: r.timeSec)} · ${flowText(r)}"
+        }
+    }
+
+    private fun flowText(r: TrailRunResult): String = when {
+        r.flowPb -> fmt("Flow %.1f (smoothest yet)", r.flowScore)
+        r.previousBestFlow != null -> fmt("Flow %.1f (best %.1f)", r.flowScore, r.previousBestFlow)
+        else -> fmt("Flow %.1f", r.flowScore)
+    }
+
+    fun ordinal(n: Int): String = n.toString() + when {
+        n % 100 in 11..13 -> "th"
+        n % 10 == 1 -> "st"
+        n % 10 == 2 -> "nd"
+        n % 10 == 3 -> "rd"
+        else -> "th"
+    }
+
+    private fun signedSeconds(delta: Double): String = fmt("%+.0f s", delta).replace("-", "−")
 
     private fun headLines(s: RideSummary, units: Units): List<String> = buildList {
         add(fmt("**🚵 MTB score %.0f** · difficulty %.0f · smoothness %.0f · air %.0f", s.score.total, s.score.difficulty, s.score.smoothness, s.score.air))

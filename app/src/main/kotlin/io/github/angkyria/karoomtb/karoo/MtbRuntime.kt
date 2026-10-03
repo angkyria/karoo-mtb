@@ -7,6 +7,7 @@ import io.github.angkyria.karoomtb.engine.MtbEngine
 import io.github.angkyria.karoomtb.notify.Units
 import io.github.angkyria.karoomtb.service.ServiceTracker
 import io.github.angkyria.karoomtb.storage.RideStore
+import io.github.angkyria.karoomtb.trails.TrailLibrary
 import io.hammerhead.karooext.models.FitEffect
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -34,13 +35,17 @@ object MtbRuntime {
         private set
     lateinit var service: ServiceTracker
         private set
+    lateinit var trails: TrailLibrary
+        private set
 
     @Synchronized
     fun init(context: Context) {
         if (initialized) return
         settings = Settings(context)
         store = RideStore(context)
-        service = ServiceTracker(File(context.getExternalFilesDir(null) ?: context.filesDir, ServiceTracker.FILE_NAME))
+        val dir = context.getExternalFilesDir(null) ?: context.filesDir
+        service = ServiceTracker(File(dir, ServiceTracker.FILE_NAME))
+        trails = TrailLibrary(File(dir, TrailLibrary.FILE_NAME))
         initialized = true
     }
 }

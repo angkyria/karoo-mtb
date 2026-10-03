@@ -32,6 +32,25 @@ BATTERY_MIN_READINGS = 3  # since the last charge, before a drain rate is shown
 BATTERY_MIN_HOURS = 1.0   # of riding in between
 
 
+def trails_text(path: str, u: Units) -> str:
+    """The Karoo's trail library (trails.json): runs, best time and smoothest Flow per trail."""
+    with open(path) as f:
+        state = json.load(f)
+    trails = sorted(state.get("trails", []), key=lambda t: -len(t.get("runs", [])))
+    lines = [f"Trails ({len(trails)}), most ridden first"]
+    for t in trails:
+        runs = t.get("runs", [])
+        if not runs:
+            continue
+        best = min(runs, key=lambda r: r["timeSec"])
+        when = dt.datetime.fromtimestamp(best["rideStartWallMs"] / 1000, dt.timezone.utc).strftime("%Y-%m-%d")
+        smooth = min(r["flowScore"] for r in runs)
+        last = runs[-1]
+        lines.append(f"  {t['name']:<20} {u.dist(t['distanceM']):>8} · −{u.elev(t['dropM'])} · {len(runs):>3} runs · "
+                     f"best {hms(best['timeSec'])} ({when}) · last {hms(last['timeSec'])} · smoothest Flow {smooth:.1f}")
+    return "\n".join(lines)
+
+
 def ride_usage(ride: Ride, s: dict) -> dict:
     """What one ride adds to the service totals (same rules as ServiceTracker.kt)."""
     fork = [x for x in ride.samples if x.moving and x.fa_front is not None]

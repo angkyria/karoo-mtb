@@ -51,3 +51,27 @@ class InsightsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TrailsJsonTest(unittest.TestCase):
+    def test_trails_text(self):
+        import json
+        import tempfile
+
+        from mtbdyn.history import trails_text
+        from mtbdyn.report import Units
+        state = {"schema": 1, "nextId": 3, "trails": [
+            {"id": 1, "name": "Dragon", "distanceM": 1250.0, "dropM": 140.0, "track": [],
+             "runs": [{"rideStartWallMs": 1790000000000, "timeSec": 212.0, "flowScore": 0.9, "brakingPct": 20, "jumps": 1, "avgSpeedMs": 6},
+                      {"rideStartWallMs": 1790100000000, "timeSec": 198.0, "flowScore": 0.6, "brakingPct": 18, "jumps": 2, "avgSpeedMs": 6.3}]},
+            {"id": 2, "name": "Trail 2", "distanceM": 800.0, "dropM": 60.0, "track": [], "runs": []},
+        ]}
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(state, f)
+        text = trails_text(f.name, Units())
+        os.unlink(f.name)
+        self.assertIn("Dragon", text)
+        self.assertIn("2 runs", text)
+        self.assertIn("best 3:18", text)
+        self.assertIn("smoothest Flow 0.6", text)
+        self.assertNotIn("Trail 2", text)

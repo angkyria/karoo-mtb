@@ -124,6 +124,11 @@ object SummaryBuilder {
             bike = bike,
             lapComparison = Insights.lapComparison(lapStats),
             brakingSpots = Insights.brakingSpots(samples, segmentStats, startWallMs),
+            descentTracks = segments.mapIndexedNotNull { i, r ->
+                if (r.type != "DESCENT") return@mapIndexedNotNull null
+                val (from, to) = Tracks.descendingCore(samples, r.start, r.end)
+                Tracks.withMargins(i + 1, samples, from, to, startWallMs)
+            },
         )
     }
 
