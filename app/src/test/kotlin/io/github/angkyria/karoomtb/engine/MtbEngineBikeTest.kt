@@ -68,7 +68,7 @@ class MtbEngineBikeTest {
         val live = sim.engine.live()
         assertTrue("rough ${live.roughNow}", live.roughNow!! >= BikeAnalytics.LOCKED_ROUGH_G)
         assertEquals(SuspensionMatch.LOCKED_ROUGH, live.suspensionMatch)
-        assertEquals(listOf<BikeAlert>(BikeAlert.LockedOnRough), sim.engine.pollAlerts())
+        assertEquals(listOf<RideAlert>(RideAlert.LockedOnRough), sim.engine.pollAlerts())
         sim.ride(10, speed = { 5.0 }, vibrationG = 2.0, each = { sim.engine.updateSuspension(front = FaState.OPEN) })
         assertEquals(SuspensionMatch.OK, sim.engine.live().suspensionMatch)
         assertTrue(sim.engine.pollAlerts().isEmpty())
@@ -96,7 +96,7 @@ class MtbEngineBikeTest {
                 sim.engine.updateGears(3, 38, sim.elapsedMs, sim.wallMs())
             },
         )
-        assertEquals(listOf<BikeAlert>(BikeAlert.ShiftDown(2)), sim.engine.pollAlerts())
+        assertEquals(listOf<RideAlert>(RideAlert.ShiftDown(2)), sim.engine.pollAlerts())
     }
 
     @Test
@@ -108,7 +108,7 @@ class MtbEngineBikeTest {
         e.setBattery("FA fork", "LOW")
         e.setBattery("FA fork", "CRITICAL")
         e.setBattery("AXS derailleur", "GOOD", percent = 90)
-        assertEquals(listOf<BikeAlert>(BikeAlert.BatteryLow("FA fork", "LOW")), e.pollAlerts())
+        assertEquals(listOf<RideAlert>(RideAlert.BatteryLow("FA fork", "LOW")), e.pollAlerts())
         sim.ride(5, speed = { 5.0 })
         val batteries = sim.finish().bike.batteries
         assertEquals(listOf("FA fork" to "CRITICAL", "AXS derailleur" to "GOOD"), batteries.map { it.component to it.status })

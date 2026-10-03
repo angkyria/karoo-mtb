@@ -85,6 +85,7 @@ class SecondSample(
     val descending: Boolean get() = moving && grade <= Scoring.DESCENT_GRADE
     val braking: Boolean get() = processed && moving && brake >= Scoring.BRAKING_THRESHOLD
     val pedalling: Boolean get() = (!cadence.isNaN() && cadence > 0.0) || (!power.isNaN() && power > 0.0)
+    val hasBikeData: Boolean get() = faFront >= 0 || faRear >= 0 || rearGear > 0 || !power.isNaN() || !cadence.isNaN()
 }
 
 /** One rear shift of the SRAM AXS drivetrain. */
@@ -122,11 +123,11 @@ object FaState {
 /** How well the suspension setting fits the terrain right now. */
 enum class SuspensionMatch { NONE, OK, LOCKED_ROUGH, OPEN_HARD_CLIMB }
 
-/** In-ride coaching events raised by [MtbEngine.pollAlerts]. */
-sealed class BikeAlert {
-    data object LockedOnRough : BikeAlert()
-    data class ShiftDown(val easierGears: Int) : BikeAlert()
-    data class BatteryLow(val component: String, val status: String) : BikeAlert()
+/** In-ride events raised by [MtbEngine.pollAlerts]. */
+sealed class RideAlert {
+    data object LockedOnRough : RideAlert()
+    data class ShiftDown(val easierGears: Int) : RideAlert()
+    data class BatteryLow(val component: String, val status: String) : RideAlert()
 }
 
 /** Values written into each FIT record message. */

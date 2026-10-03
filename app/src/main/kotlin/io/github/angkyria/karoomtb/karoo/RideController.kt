@@ -5,7 +5,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import io.github.angkyria.karoomtb.R
-import io.github.angkyria.karoomtb.engine.BikeAlert
+import io.github.angkyria.karoomtb.engine.RideAlert
 import io.github.angkyria.karoomtb.engine.Jump
 import io.github.angkyria.karoomtb.engine.MtbEngine
 import io.github.angkyria.karoomtb.engine.RideSummary
@@ -212,7 +212,7 @@ class RideController(
             val out = engine.tick(now, System.currentTimeMillis())
             MtbRuntime.live.value = out.live
             out.record?.let { MtbRuntime.fitEffects.tryEmit(MtbFitFields.record(it, settings.writeNativeFit)) }
-            engine.pollAlerts().forEach(::showBikeAlert)
+            engine.pollAlerts().forEach(::showAlert)
             count++
             if (count % SESSION_EVERY_SEC == 0) emitSession()
             if (count % STORE_EVERY_SEC == 0) flushStorage()
@@ -344,9 +344,9 @@ class RideController(
         if (status != BatteryStatus.INVALID) engine.setBattery(component, status.name, if (percent) v else null)
     }
 
-    private fun showBikeAlert(alert: BikeAlert) {
+    private fun showAlert(alert: RideAlert) {
         when (alert) {
-            is BikeAlert.LockedOnRough -> if (settings.suspensionAlerts) {
+            is RideAlert.LockedOnRough -> if (settings.suspensionAlerts) {
                 karoo.dispatch(
                     InRideAlert(
                         id = "mtb-suspension", icon = R.drawable.ic_suspension, title = "Suspension locked on rough ground",
@@ -355,7 +355,7 @@ class RideController(
                     ),
                 )
             }
-            is BikeAlert.ShiftDown -> if (settings.shiftAdvice) {
+            is RideAlert.ShiftDown -> if (settings.shiftAdvice) {
                 karoo.dispatch(
                     InRideAlert(
                         id = "mtb-shift", icon = R.drawable.ic_gear, title = "Easier gear available",
@@ -364,7 +364,7 @@ class RideController(
                     ),
                 )
             }
-            is BikeAlert.BatteryLow -> if (settings.batteryAlerts) {
+            is RideAlert.BatteryLow -> if (settings.batteryAlerts) {
                 karoo.dispatch(
                     InRideAlert(
                         id = "mtb-battery-${alert.component}", icon = R.drawable.ic_battery,
