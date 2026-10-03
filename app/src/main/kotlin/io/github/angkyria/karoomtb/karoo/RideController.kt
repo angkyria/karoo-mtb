@@ -374,6 +374,16 @@ class RideController(
                     ),
                 )
             }
+            is RideAlert.DescentFinished -> if (settings.descentAlerts) {
+                karoo.dispatch(
+                    InRideAlert(
+                        id = "mtb-descent", icon = R.drawable.ic_descent,
+                        title = SummaryFormatter.descentAlertTitle(alert.stats, MtbRuntime.units),
+                        detail = SummaryFormatter.descentAlertDetail(alert.stats), autoDismissMs = 8_000,
+                        backgroundColor = R.color.alert_info_bg, textColor = R.color.alert_text,
+                    ),
+                )
+            }
         }
     }
 

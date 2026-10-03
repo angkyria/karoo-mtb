@@ -123,12 +123,33 @@ object FaState {
 /** How well the suspension setting fits the terrain right now. */
 enum class SuspensionMatch { NONE, OK, LOCKED_ROUGH, OPEN_HARD_CLIMB }
 
+/** A GPS position (degrees). */
+@Serializable
+data class GeoPoint(val lat: Double, val lon: Double)
+
 /** In-ride events raised by [MtbEngine.pollAlerts]. */
 sealed class RideAlert {
     data object LockedOnRough : RideAlert()
     data class ShiftDown(val easierGears: Int) : RideAlert()
     data class BatteryLow(val component: String, val status: String) : RideAlert()
+
+    /** The bottom of a descent was reached: its stats and GPS track (every ~20 m, empty without GPS). */
+    data class DescentFinished(val stats: SegmentStats, val track: List<GeoPoint>) : RideAlert()
 }
+
+/** The descent in progress (live, see [DescentTracker]). */
+data class LiveDescent(
+    val number: Int,
+    val timeSec: Double,
+    val distanceM: Double,
+    val dropM: Double,
+    val avgSpeedMs: Double,
+    /** Unnecessary braking per 100 m; covers the descent up to [MtbConfig.flowLagSec] seconds ago. */
+    val flowScore: Double,
+    val brakingPct: Double,
+    val jumps: Int,
+    val maxLateralG: Double,
+)
 
 /** Values written into each FIT record message. */
 data class RecordValues(
@@ -216,6 +237,9 @@ data class LiveMetrics(
     val easierGearsLeft: Int = -1,
     val shifts: Int = 0,
     val power: Double? = null,
+    // Descents
+    val descent: LiveDescent? = null,
+    val lastDescent: SegmentStats? = null,
 )
 
 data class TickOutput(

@@ -4,7 +4,11 @@
     <string name="extension_name">MTB Dynamics</string>
 
     <string name="dt_panel">MTB Dynamics</string>
-    <string name="dt_panel_desc">Grit, Flow, jumps and last airtime in one field</string>
+    <string name="dt_panel_desc">Grit, Flow, jumps and last airtime in one field (cells can be changed in the app)</string>
+    <string name="dt_descent_panel">Descent</string>
+    <string name="dt_descent_panel_desc">The descent in progress (else the last one): time, drop, Flow, braking, jumps, speed</string>
+    <string name="dt_descent_flow">Descent Flow</string>
+    <string name="dt_descent_flow_desc">Smoothness of the descent in progress (else the last one), lower is better</string>
     <string name="dt_grit">Grit</string>
     <string name="dt_grit_desc">Ride difficulty so far (kGrit): grade, turns and trail roughness</string>
     <string name="dt_grit60">Grit 60s</string>
@@ -36,7 +40,7 @@
     <string name="dt_score">MTB Score</string>
     <string name="dt_score_desc">0-100 from difficulty, smoothness and airtime</string>
     <string name="dt_bike_panel">Bike Systems</string>
-    <string name="dt_bike_panel_desc">Flight Attendant state, rear cog, power and trail roughness</string>
+    <string name="dt_bike_panel_desc">Flight Attendant state, rear cog, power and trail roughness (cells can be changed in the app)</string>
     <string name="dt_suspension">Suspension Coach</string>
     <string name="dt_suspension_desc">Flight Attendant state, red when locked on rough ground, amber when open on a hard climb</string>
     <string name="dt_fa_open_desc">FA Open Descent</string>

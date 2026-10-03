@@ -73,6 +73,16 @@ object SummaryFormatter {
     fun jumpAlertDetail(jump: Jump, units: Units): String =
         "${units.meters(jump.distanceM)} · ${units.speed(jump.speedMs)} · ${fmt("%.1f g", jump.landingG)} landing"
 
+    /** In-ride alert at the bottom of a descent: "Descent 2 · 4:12 · −182 m". */
+    fun descentAlertTitle(d: SegmentStats, units: Units): String =
+        "${d.name} · ${Units.duration(d.durationSec)} · −${units.elevation(d.elevLossM)}"
+
+    fun descentAlertDetail(d: SegmentStats): String = buildString {
+        append(fmt("Flow %.1f · brake %.0f%%", d.flowScore, d.brakingPct))
+        if (d.jumps > 0) append(fmt(" · %d jump%s", d.jumps, if (d.jumps == 1) "" else "s"))
+        if (d.maxLateralG > 0.05) append(fmt(" · max %.2f g", d.maxLateralG))
+    }
+
     private fun headLines(s: RideSummary, units: Units): List<String> = buildList {
         add(fmt("**🚵 MTB score %.0f** · difficulty %.0f · smoothness %.0f · air %.0f", s.score.total, s.score.difficulty, s.score.smoothness, s.score.air))
         add("")

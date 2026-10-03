@@ -61,6 +61,7 @@ class MainActivity : Activity() {
     private lateinit var sensitivity: Spinner
     private lateinit var jumpAlerts: Switch
     private lateinit var jumpBeep: Switch
+    private lateinit var alertDescent: Switch
     private lateinit var mtbOnly: Switch
     private lateinit var segmentElev: EditText
     private lateinit var fitNative: Switch
@@ -73,6 +74,7 @@ class MainActivity : Activity() {
     private lateinit var testResult: TextView
     private lateinit var lastRide: TextView
     private lateinit var service: ServiceSection
+    private lateinit var panels: PanelSection
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +95,7 @@ class MainActivity : Activity() {
         sensitivity = findViewById(R.id.sensitivity)
         jumpAlerts = findViewById(R.id.jump_alerts)
         jumpBeep = findViewById(R.id.jump_beep)
+        alertDescent = findViewById(R.id.alert_descent)
         mtbOnly = findViewById(R.id.mtb_only)
         segmentElev = findViewById(R.id.segment_elev)
         fitNative = findViewById(R.id.fit_native)
@@ -105,6 +108,7 @@ class MainActivity : Activity() {
         testResult = findViewById(R.id.test_result)
         lastRide = findViewById(R.id.last_ride)
         service = ServiceSection(this, findViewById(R.id.service_items), findViewById(R.id.service_summary), MtbRuntime.service, ::units)
+        panels = PanelSection(this, findViewById(R.id.panel_items), settings).also { it.render() }
 
         ntfyPriority.adapter = adapter(listOf("1 · min", "2 · low", "3 · default", "4 · high", "5 · urgent"))
         sensitivity.adapter = adapter(listOf("Low · only clear jumps", "Medium", "High · small hops too"))
@@ -194,6 +198,7 @@ class MainActivity : Activity() {
         sensitivity.setSelection(settings.sensitivity.ordinal)
         jumpAlerts.isChecked = settings.jumpAlerts
         jumpBeep.isChecked = settings.jumpBeep
+        alertDescent.isChecked = settings.descentAlerts
         mtbOnly.isChecked = settings.mtbProfilesOnly
         segmentElev.setText(settings.segmentMinElevationM.toString())
         fitNative.isChecked = settings.writeNativeFit
@@ -222,6 +227,7 @@ class MainActivity : Activity() {
         settings.sensitivity = Sensitivity.entries[sensitivity.selectedItemPosition.coerceIn(0, Sensitivity.entries.lastIndex)]
         settings.jumpAlerts = jumpAlerts.isChecked
         settings.jumpBeep = jumpBeep.isChecked
+        settings.descentAlerts = alertDescent.isChecked
         settings.mtbProfilesOnly = mtbOnly.isChecked
         settings.segmentMinElevationM = segmentElev.text.toString().toIntOrNull() ?: settings.segmentMinElevationM
         settings.writeNativeFit = fitNative.isChecked
@@ -230,6 +236,7 @@ class MainActivity : Activity() {
         settings.shiftAdvice = alertShift.isChecked
         settings.batteryAlerts = alertBattery.isChecked
         service.save()
+        panels.save()
         return true
     }
 

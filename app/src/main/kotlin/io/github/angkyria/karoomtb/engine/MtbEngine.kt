@@ -120,6 +120,11 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     /** Any power, cadence, Flight Attendant or AXS data this ride (else the bike totals are skipped). */
     private var bikeDataSeen = false
 
+    // Live descents: found by the tracker, reported once Flow has caught up with their last second.
+    private val descents = DescentTracker()
+    private val descentsAwaitingFlow = ArrayList<DescentTracker.Finished>()
+    private var lastDescent: SegmentStats? = null
+
     // ---- Ride lifecycle ---------------------------------------------------------------------
 
     fun start(wallMs: Long, elapsedMs: Long, newConfig: MtbConfig = config) = synchronized(lock) {
@@ -155,6 +160,9 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         coach.reset()
         pendingAlerts.clear()
         bikeDataSeen = false
+        descents.reset()
+        descentsAwaitingFlow.clear()
+        lastDescent = null
         // Bike state is per ride (the next ride may be on another bike); the streams refill it.
         power = Double.NaN
         cadence = Double.NaN
@@ -228,6 +236,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         jumps += restoredJumps
         corners += restoredCorners
         shifts += restoredShifts
+        // Replay the descent tracker silently so numbering and a descent in progress continue.
+        for (i in samples.indices) descents.onSample(samples, i, config.segmentMinElevationM)
     }
 
     // ---- Context from Karoo streams ---------------------------------------------------------
@@ -429,6 +439,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         samples += sample
         totals.addImmediate(sample)
         lapTotals[sample.lap].addImmediate(sample)
+        descents.onSample(samples, samples.lastIndex, config.segmentMinElevationM)?.let { descentsAwaitingFlow += it }
 
         var flowOut = 0.0
         var brakeOut = 0.0
@@ -438,6 +449,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             brakeOut = max(brakeOut, processed.brake)
         }
         refineJumpHeights(elapsedMs)
+        reportFinishedDescents()
 
         val landed = jumpsForNextRecord.maxByOrNull { it.airSec }
         jumpsForNextRecord.clear()
@@ -613,6 +625,74 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         return my + slope * (atMs - mx)
     }
 
+    /** Descents whose last second has been through Flow: stats and an alert. */
+    private fun reportFinishedDescents() {
+        val iterator = descentsAwaitingFlow.iterator()
+        while (iterator.hasNext()) {
+            val d = iterator.next()
+            if (d.end > processedUpTo) continue
+            iterator.remove()
+            val stats = RangeStats.compute(
+                d.number, "DESCENT", "Descent ${d.number}", samples, d.start, d.end, jumps, corners, rideStartWallMs, shifts, riderWeightKg,
+            )
+            lastDescent = stats
+            pendingAlerts += RideAlert.DescentFinished(stats, track(d.start, d.end))
+        }
+    }
+
+    /** GPS points of samples [from]..[to], one every [TRACK_SPACING_M] metres. */
+    private fun track(from: Int, to: Int): List<GeoPoint> {
+        val out = ArrayList<GeoPoint>()
+        var lastDist = Double.NEGATIVE_INFINITY
+        for (i in from..to) {
+            val s = samples[i]
+            if (s.lat.isNaN() || s.lon.isNaN()) continue
+            if (s.distanceM - lastDist >= TRACK_SPACING_M || i == to) {
+                out += GeoPoint(s.lat, s.lon)
+                lastDist = s.distanceM
+            }
+        }
+        return out
+    }
+
+    private fun liveDescentLocked(): LiveDescent? {
+        val range = descents.currentRange(samples.lastIndex) ?: return null
+        var distance = 0.0
+        var movingSec = 0.0
+        var flow = 0.0
+        var flowDist = 0.0
+        var processedSec = 0.0
+        var brakingSec = 0.0
+        var maxLat = 0.0
+        for (i in range) {
+            val s = samples[i]
+            distance += s.dDist
+            if (!s.moving) continue
+            movingSec += s.dt
+            maxLat = max(maxLat, s.latG)
+            if (s.processed) {
+                flow += s.flow
+                flowDist += s.dDist
+                processedSec += s.dt
+                if (s.braking) brakingSec += s.dt
+            }
+        }
+        val first = samples[range.first]
+        val last = samples[range.last]
+        val startOffset = (first.elapsedMs - rideStartElapsedMs) / 1000.0
+        return LiveDescent(
+            number = descents.number,
+            timeSec = (last.elapsedMs - first.elapsedMs) / 1000.0 + last.dt,
+            distanceM = distance,
+            dropM = descents.currentDropM,
+            avgSpeedMs = if (movingSec > 0) distance / movingSec else 0.0,
+            flowScore = Scoring.flowScore(flow, flowDist),
+            brakingPct = if (processedSec > 0) 100.0 * brakingSec / processedSec else 0.0,
+            jumps = jumps.count { it.offsetSec >= startOffset - 1.0 },
+            maxLateralG = maxLat,
+        )
+    }
+
     private fun addCorner(c: CornerDetector.FinishedCorner) {
         val corner = Corner(
             n = corners.size + 1,
@@ -698,6 +778,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             easierGearsLeft = if (rearGear > 0) rearGear - 1 else -1,
             shifts = shifts.size,
             power = power.takeUnless { it.isNaN() },
+            descent = liveDescentLocked(),
+            lastDescent = lastDescent,
         )
     }
 
@@ -838,5 +920,6 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         private const val SPEED_HISTORY_MS = 10_000L
         private const val CORNER_FEED_SEC = 0.1
         private const val ALTITUDE_SETTLE_MS = 3_000L
+        private const val TRACK_SPACING_M = 20.0
     }
 }

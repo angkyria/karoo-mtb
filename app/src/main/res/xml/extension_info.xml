@@ -104,6 +104,18 @@
         typeId="mtb-score" />
     <!-- Bike systems: RockShox Flight Attendant, SRAM AXS, power meter -->
     <DataType
+        description="@string/dt_descent_panel_desc"
+        displayName="@string/dt_descent_panel"
+        graphical="true"
+        icon="@drawable/ic_descent"
+        typeId="descent-panel" />
+    <DataType
+        description="@string/dt_descent_flow_desc"
+        displayName="@string/dt_descent_flow"
+        graphical="false"
+        icon="@drawable/ic_flow"
+        typeId="descent-flow" />
+    <DataType
         description="@string/dt_bike_panel_desc"
         displayName="@string/dt_bike_panel"
         graphical="true"

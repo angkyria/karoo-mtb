@@ -190,6 +190,11 @@
             android:text="Beep after each jump" />
 
         <Switch
+            android:id="@+id/alert_descent"
+            style="@style/Toggle"
+            android:text="Show an alert at the bottom of each descent" />
+
+        <Switch
             android:id="@+id/mtb_only"
             style="@style/Toggle"
             android:text="Only in MTB / eMTB ride profiles" />
@@ -224,6 +229,20 @@
             android:text="Alert when an AXS or Flight Attendant battery is low" />
 
         <!-- Service tracker (filled by ServiceSection.kt) -->
+        <TextView
+            style="@style/Section"
+            android:text="Data field panels" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Pick what the graphical MTB Dynamics, Bike Systems and Descent fields show. Small fields show the first four cells." />
+
+        <LinearLayout
+            android:id="@+id/panel_items"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
         <TextView
             style="@style/Section"
             android:text="Service tracker" />

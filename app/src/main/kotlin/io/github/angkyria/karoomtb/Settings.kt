@@ -3,6 +3,8 @@ package io.github.angkyria.karoomtb
 import android.content.Context
 import io.github.angkyria.karoomtb.engine.MtbConfig
 import io.github.angkyria.karoomtb.engine.Sensitivity
+import io.github.angkyria.karoomtb.karoo.Panel
+import io.github.angkyria.karoomtb.karoo.PanelCell
 import io.github.angkyria.karoomtb.notify.NtfyRequest
 import io.github.angkyria.karoomtb.notify.NtfyTarget
 import java.security.SecureRandom
@@ -66,6 +68,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("fit_native", true)
         set(v) = prefs.edit().putBoolean("fit_native", v).apply()
 
+    /** In-ride alert at the bottom of each descent (time, drop, Flow, braking, jumps). */
+    var descentAlerts: Boolean
+        get() = prefs.getBoolean("alert_descent", true)
+        set(v) = prefs.edit().putBoolean("alert_descent", v).apply()
+
     /** In-ride alert when Flight Attendant stays in Lock on rough ground. */
     var suspensionAlerts: Boolean
         get() = prefs.getBoolean("alert_suspension", true)
@@ -89,6 +96,13 @@ class Settings(context: Context) {
     var segmentMinElevationM: Int
         get() = prefs.getInt("segment_min_elev", 15)
         set(v) = prefs.edit().putInt("segment_min_elev", v.coerceIn(5, 100)).apply()
+
+    /** The cells of a graphical panel field (6; small fields show the first 4). */
+    fun panelCells(panel: Panel): List<PanelCell> = PanelCell.parse(prefs.getString("panel_${panel.typeId}", null), panel.defaults)
+
+    fun setPanelCells(panel: Panel, cells: List<PanelCell>) {
+        prefs.edit().putString("panel_${panel.typeId}", cells.joinToString(",") { it.name }).apply()
+    }
 
     fun mtbConfig(): MtbConfig = MtbConfig(sensitivity = sensitivity, segmentMinElevationM = segmentMinElevationM.toDouble())
 

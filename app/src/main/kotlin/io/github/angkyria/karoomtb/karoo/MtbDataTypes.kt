@@ -4,9 +4,11 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
 import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 import io.github.angkyria.karoomtb.R
 import io.github.angkyria.karoomtb.engine.FaState
+import io.github.angkyria.karoomtb.engine.LiveDescent
 import io.github.angkyria.karoomtb.engine.LiveMetrics
 import io.github.angkyria.karoomtb.engine.RideStatus
 import io.github.angkyria.karoomtb.engine.SuspensionMatch
@@ -39,22 +41,9 @@ object MtbDataTypes {
     private const val METERS = DataType.Type.PRESSURE_ELEVATION_CORRECTION
 
     fun create(extension: String): List<DataTypeImpl> = listOf(
-        MtbPanelDataType(extension, "panel", MTB_PREVIEW) { live ->
-            listOf(
-                "GRIT" to fmt("%.1f", live.gritTotalK),
-                "FLOW" to fmt("%.1f", live.flowScore),
-                "JUMPS" to live.jumpCount.toString(),
-                "AIR" to (live.lastJump?.let { fmt("%.2f s", it.airSec) } ?: "–"),
-            )
-        },
-        MtbPanelDataType(extension, "bike-panel", BIKE_PREVIEW) { live ->
-            listOf(
-                "SUSPENSION" to if (live.faFront >= 0) FaState.name(live.faFront).uppercase() else "–",
-                "COG" to if (live.rearTeeth > 0) "${live.rearTeeth}T" else "–",
-                "POWER" to (live.power?.let { "${it.toInt()} W" } ?: "–"),
-                "ROUGH" to (live.roughNow?.let { fmt("%.2f g", it) } ?: "–"),
-            )
-        },
+        MtbPanelDataType(extension, Panel.MTB, MTB_PREVIEW),
+        MtbPanelDataType(extension, Panel.BIKE, BIKE_PREVIEW),
+        MtbPanelDataType(extension, Panel.DESCENT, DESCENT_PREVIEW),
         SuspensionCoachDataType(extension),
         numeric(extension, "grit", TWO_DECIMALS) { it.gritTotalK },
         numeric(extension, "grit-60s", TWO_DECIMALS) { it.grit60 },
@@ -63,8 +52,9 @@ object MtbDataTypes {
         numeric(extension, "flow-60s", TWO_DECIMALS) { it.flow60 },
         numeric(extension, "flow-lap", TWO_DECIMALS) { it.flowLap },
         numeric(extension, "jumps", null) { it.jumpCount.toDouble() },
-        numeric(extension, "jump-air", TWO_DECIMALS, needsImu = true) { it.lastJump?.airSec ?: 0.0 },
-        numeric(extension, "jump-dist", METERS, needsImu = true) { it.lastJump?.distanceM ?: 0.0 },
+        // "Not available" until the first jump (like the panel's "–"), not a misleading 0.
+        numeric(extension, "jump-air", TWO_DECIMALS, needsImu = true) { it.lastJump?.airSec },
+        numeric(extension, "jump-dist", METERS, needsImu = true) { it.lastJump?.distanceM },
         numeric(extension, "jump-max-air", TWO_DECIMALS, needsImu = true) { it.maxAirSec },
         numeric(extension, "corner-g", TWO_DECIMALS) { it.latG },
         numeric(extension, "corners", null) { it.cornerCount.toDouble() },
@@ -73,6 +63,7 @@ object MtbDataTypes {
         numeric(extension, "mtb-score", null) { it.mtbScore },
         optional(extension, "easier-gears") { live -> live.easierGearsLeft.takeIf { it >= 0 }?.toDouble() },
         optional(extension, "fa-open-desc") { it.faOpenDescentPct },
+        optional(extension, "descent-flow") { live -> live.descent?.flowScore ?: live.lastDescent?.flowScore },
     )
 
     private fun numeric(
@@ -80,7 +71,7 @@ object MtbDataTypes {
         typeId: String,
         format: String?,
         needsImu: Boolean = false,
-        value: (LiveMetrics) -> Double,
+        value: (LiveMetrics) -> Double?,
     ): DataTypeImpl = MtbNumericDataType(extension, typeId, format) { live ->
         // A few seconds into a ride without any accelerometer sample: IMU-only fields are unavailable.
         val noImu = needsImu && live.status == RideStatus.RECORDING && !live.hasAccelerometer && live.gritTotalK > 0.05
@@ -93,8 +84,15 @@ object MtbDataTypes {
 
     fun fmt(pattern: String, value: Double) = String.format(Locale.ROOT, pattern, value)
 
-    private val MTB_PREVIEW = LiveMetrics(gritTotalK = 23.4, flowScore = 3.1, jumpCount = 7)
-    private val BIKE_PREVIEW = LiveMetrics(faFront = FaState.PEDAL, rearTeeth = 28, power = 245.0, roughNow = 0.62)
+    private val MTB_PREVIEW = LiveMetrics(gritTotalK = 23.4, flowScore = 3.1, jumpCount = 7, mtbScore = 68.0, cornerCount = 41)
+    private val BIKE_PREVIEW =
+        LiveMetrics(faFront = FaState.PEDAL, rearTeeth = 28, power = 245.0, roughNow = 0.62, easierGearsLeft = 3, faOpenDescentPct = 91.0)
+    private val DESCENT_PREVIEW = LiveMetrics(
+        descent = LiveDescent(
+            number = 2, timeSec = 192.0, distanceM = 1350.0, dropM = 141.0, avgSpeedMs = 7.0,
+            flowScore = 0.8, brakingPct = 19.0, jumps = 2, maxLateralG = 0.8,
+        ),
+    )
 }
 
 class MtbNumericDataType(
@@ -127,13 +125,15 @@ class MtbNumericDataType(
 private fun isNight(context: Context): Boolean =
     (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-/** A 2 × 2 grid of label / value cells (like Garmin's MTB Dynamics page). */
+/**
+ * A grid of label / value cells (like Garmin's MTB Dynamics page): 2 × 2, or 3 × 2 when the field
+ * is tall. The rider picks the cells per panel in the settings ([Settings.panelCells]).
+ */
 class MtbPanelDataType(
     extension: String,
-    typeId: String,
+    private val panel: Panel,
     private val preview: LiveMetrics,
-    private val cells: (LiveMetrics) -> List<Pair<String, String>>,
-) : DataTypeImpl(extension, typeId) {
+) : DataTypeImpl(extension, panel.typeId) {
 
     @OptIn(FlowPreview::class)
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
@@ -151,23 +151,41 @@ class MtbPanelDataType(
     }
 
     private fun render(context: Context, config: ViewConfig, night: Boolean, live: LiveMetrics): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.view_mtb_panel)
-        val ids = listOf(R.id.label_1 to R.id.value_1, R.id.label_2 to R.id.value_2, R.id.label_3 to R.id.value_3, R.id.label_4 to R.id.value_4)
         val (width, height) = config.viewSize
-        val valuePx = min(height / 2f * 0.5f, width / 2f / 4.2f).coerceAtLeast(14f)
+        val six = Panel.useSixCells(width, height)
+        val views = RemoteViews(context.packageName, if (six) R.layout.view_panel_6 else R.layout.view_panel_4)
+        val cells = MtbRuntime.settings.panelCells(panel).take(if (six) 6 else 4)
+        val header = panel.header(live)
+        val rows = cells.size / 2
+        val usableHeight = height * (if (header != null) 0.85f else 1f)
+        val valuePx = min(usableHeight / rows * 0.5f, width / 2f / 4.2f).coerceAtLeast(14f)
         val labelPx = (valuePx * 0.38f).coerceAtLeast(10f)
         val valueColor = if (night) Color.WHITE else Color.BLACK
         val labelColor = if (night) Color.LTGRAY else Color.DKGRAY
-        for ((i, cell) in cells(live).take(4).withIndex()) {
-            val (labelId, valueId) = ids[i]
-            views.setTextViewText(labelId, cell.first)
-            views.setTextViewText(valueId, cell.second)
+        if (header != null) {
+            views.setViewVisibility(R.id.panel_header, View.VISIBLE)
+            views.setTextViewText(R.id.panel_header, header)
+            views.setTextColor(R.id.panel_header, if (live.descent != null) ACTIVE else labelColor)
+            views.setTextViewTextSize(R.id.panel_header, TypedValue.COMPLEX_UNIT_PX, labelPx * 1.15f)
+        }
+        val units = MtbRuntime.units
+        for ((i, cell) in cells.withIndex()) {
+            val labelId = LABELS[i]
+            val valueId = VALUES[i]
+            views.setTextViewText(labelId, cell.label)
+            views.setTextViewText(valueId, cell.value(live, units))
             views.setTextColor(labelId, labelColor)
             views.setTextColor(valueId, valueColor)
             views.setTextViewTextSize(labelId, TypedValue.COMPLEX_UNIT_PX, labelPx)
             views.setTextViewTextSize(valueId, TypedValue.COMPLEX_UNIT_PX, valuePx)
         }
         return views
+    }
+
+    companion object {
+        private val LABELS = listOf(R.id.label_1, R.id.label_2, R.id.label_3, R.id.label_4, R.id.label_5, R.id.label_6)
+        private val VALUES = listOf(R.id.value_1, R.id.value_2, R.id.value_3, R.id.value_4, R.id.value_5, R.id.value_6)
+        private const val ACTIVE = 0xFFFF6D00.toInt()
     }
 }
 
