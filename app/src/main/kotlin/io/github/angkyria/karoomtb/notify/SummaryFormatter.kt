@@ -97,7 +97,10 @@ object SummaryFormatter {
         }
         val d = s.descending
         if (d.timeSec >= 30) {
-            add("⬇️ **Descents ${duration(d.timeSec)}** · ${units.elevation(d.dropM)} ↓ · avg ${units.speed(d.avgSpeedMs)} · " + fmt("braking %.0f%%", d.brakingPct))
+            add(
+                "⬇️ **Descents ${duration(d.timeSec)}** · ${units.elevation(d.dropM)} ↓ · avg ${units.speed(d.avgSpeedMs)} · " +
+                    fmt("braking %.0f%%", d.brakingPct),
+            )
         }
         s.roughnessAvg?.let { add(fmt("〰️ Roughness avg %.2f g", it)) }
     }

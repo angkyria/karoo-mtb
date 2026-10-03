@@ -102,6 +102,7 @@ class NotifyTest {
         assertEquals("https://ntfy.sh/t1", req.url)
         assertEquals("ride.json", req.headers["Filename"])
     }
+
     @Test
     fun `bike section only when components were paired`() {
         val sim = RideSim().apply { start() }

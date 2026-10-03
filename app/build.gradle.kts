@@ -62,6 +62,12 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+    lint {
+        // Errors fail CI; warnings are listed in the report (artifact "lint-report").
+        abortOnError = true
+        warningsAsErrors = false
+        checkReleaseBuilds = false
+    }
 }
 
 /** Writes the manifest.json the Karoo uses for side-loading and update checks. */
