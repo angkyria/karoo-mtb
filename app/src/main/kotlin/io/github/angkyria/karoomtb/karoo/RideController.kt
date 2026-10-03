@@ -5,13 +5,14 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import io.github.angkyria.karoomtb.R
-import io.github.angkyria.karoomtb.engine.BikeAlert
 import io.github.angkyria.karoomtb.engine.Jump
 import io.github.angkyria.karoomtb.engine.MtbEngine
+import io.github.angkyria.karoomtb.engine.RideAlert
 import io.github.angkyria.karoomtb.engine.RideSummary
 import io.github.angkyria.karoomtb.engine.SummaryMeta
 import io.github.angkyria.karoomtb.fit.MtbFitFields
 import io.github.angkyria.karoomtb.notify.HttpSender
+import io.github.angkyria.karoomtb.notify.IcuUploader
 import io.github.angkyria.karoomtb.notify.RideNotifier
 import io.github.angkyria.karoomtb.notify.SendResult
 import io.github.angkyria.karoomtb.notify.SummaryFormatter
@@ -61,7 +62,9 @@ class RideController(
     private val settings = MtbRuntime.settings
     private val store = MtbRuntime.store
     private val sensors = ImuSensorSource(context, engine)
-    private val notifier = RideNotifier(settings, store, HttpSender(karoo)) { MtbRuntime.service.notices(it) }
+    private val http = HttpSender(karoo)
+    private val notifier = RideNotifier(settings, store, http) { MtbRuntime.service.notices(it) }
+    private val icu = IcuUploader(settings::icuConfig, store, http)
 
     private val rideStates = Channel<RideState>(Channel.UNLIMITED)
     private val consumers = ArrayList<String>()
@@ -106,10 +109,29 @@ class RideController(
         }
     }
 
+    /**
+     * The "Mark moment" controller action: stores a marker (events.jsonl, FIT user_marker event)
+     * and shows what the jump detector made of the last flight, so real jumps can be checked.
+     */
+    fun markMoment() {
+        val marker = engine.markMoment(System.currentTimeMillis(), SystemClock.elapsedRealtime()) ?: return
+        MtbRuntime.fitEffects.tryEmit(MtbFitFields.marker(marker.n))
+        Log.i(TAG, "marker ${marker.n}: flight ${marker.flightAirSec} verdict '${marker.flightVerdict}'")
+        karoo.dispatch(
+            InRideAlert(
+                id = "mtb-marker", icon = R.drawable.ic_jump, title = "Marked #${marker.n}",
+                detail = SummaryFormatter.markerDetail(marker), autoDismissMs = 4_000,
+                backgroundColor = R.color.alert_info_bg, textColor = R.color.alert_text,
+            ),
+        )
+        karoo.dispatch(PlayBeepPattern(listOf(PlayBeepPattern.Tone(2600, 60))))
+    }
+
     fun onConnected() {
         scope.launch {
             delay(5_000)
             notifier.retryPending(MtbRuntime.units)
+            icu.retryPending(MtbRuntime.units)
         }
     }
 
@@ -172,7 +194,7 @@ class RideController(
             engine.restore(
                 meta.startWallMs, nowWall, nowElapsed,
                 store.loadSamples(unfinished), store.loadJumps(unfinished), store.loadCorners(unfinished),
-                settings.mtbConfig(), store.loadShifts(unfinished),
+                settings.mtbConfig(), store.loadShifts(unfinished), store.loadMarkers(unfinished),
             )
             rideDir = unfinished
         } else {
@@ -212,7 +234,8 @@ class RideController(
             val out = engine.tick(now, System.currentTimeMillis())
             MtbRuntime.live.value = out.live
             out.record?.let { MtbRuntime.fitEffects.tryEmit(MtbFitFields.record(it, settings.writeNativeFit)) }
-            engine.pollAlerts().forEach(::showBikeAlert)
+            engine.pollAlerts().forEach(::showAlert)
+            if (engine.mapVersionNow != MtbRuntime.map.value.version) MtbRuntime.map.value = engine.mapFeatures()
             count++
             if (count % SESSION_EVERY_SEC == 0) emitSession()
             if (count % STORE_EVERY_SEC == 0) flushStorage()
@@ -224,15 +247,32 @@ class RideController(
         tickJob?.cancelAndJoin()
         tickJob = null
         releaseRideResources()
-        val summary = engine.finish(System.currentTimeMillis(), SummaryMeta(appVersion, profile?.name, deviceName(), ascentM, descentM))
+        val finished = engine.finish(System.currentTimeMillis(), SummaryMeta(appVersion, profile?.name, deviceName(), ascentM, descentM))
         // After finish(): the last seconds, jumps and corners are only final now.
         flushStorage()
         rideDir = null
+        val summary = withTrails(finished)
         store.saveSummary(dir, summary)
         MtbRuntime.live.value = engine.live()
         announce(summary)
         countService(summary)
         scope.launch { reportFailure(notifier.publish(dir, summary, MtbRuntime.units)) }
+        scope.launch { icuAfterRide(dir, summary) }
+    }
+
+    /**
+     * The Karoo uploads the ride to intervals.icu itself; once the activity shows up there, its
+     * description gets the MTB block. Tried for an hour here, then whenever the Karoo connects.
+     */
+    private suspend fun icuAfterRide(dir: File, summary: RideSummary) {
+        if (!icu.enabled || summary.movingSec < settings.minNotifyMinutes * 60) return
+        icu.markPending(dir)
+        delay(ICU_FIRST_TRY_MS)
+        repeat(ICU_TRIES) {
+            val r = icu.publish(dir, summary, MtbRuntime.units)
+            if (r.ok || r.permanentFailure) return
+            delay(ICU_RETRY_MS)
+        }
     }
 
     /** The Karoo is idle but a stored ride never got its summary (the extension was killed). */
@@ -253,13 +293,14 @@ class RideController(
         val replay = MtbEngine(settings.mtbConfig())
         replay.restore(
             meta.startWallMs, lastWall, SystemClock.elapsedRealtime(), samples, store.loadJumps(dir), store.loadCorners(dir),
-            restoredShifts = store.loadShifts(dir),
+            restoredShifts = store.loadShifts(dir), restoredMarkers = store.loadMarkers(dir),
         )
-        val summary = replay.finish(lastWall + 1000, SummaryMeta(appVersion, meta.profileName, meta.device))
+        val summary = withTrails(replay.finish(lastWall + 1000, SummaryMeta(appVersion, meta.profileName, meta.device)))
         store.saveSummary(dir, summary)
         countService(summary)
         Log.i(TAG, "finished ride ${dir.name} from storage")
         reportFailure(notifier.publish(dir, summary, MtbRuntime.units))
+        scope.launch { icuAfterRide(dir, summary) }
     }
 
     private fun subscribeStreams() {
@@ -344,9 +385,9 @@ class RideController(
         if (status != BatteryStatus.INVALID) engine.setBattery(component, status.name, if (percent) v else null)
     }
 
-    private fun showBikeAlert(alert: BikeAlert) {
+    private fun showAlert(alert: RideAlert) {
         when (alert) {
-            is BikeAlert.LockedOnRough -> if (settings.suspensionAlerts) {
+            is RideAlert.LockedOnRough -> if (settings.suspensionAlerts) {
                 karoo.dispatch(
                     InRideAlert(
                         id = "mtb-suspension", icon = R.drawable.ic_suspension, title = "Suspension locked on rough ground",
@@ -355,7 +396,7 @@ class RideController(
                     ),
                 )
             }
-            is BikeAlert.ShiftDown -> if (settings.shiftAdvice) {
+            is RideAlert.ShiftDown -> if (settings.shiftAdvice) {
                 karoo.dispatch(
                     InRideAlert(
                         id = "mtb-shift", icon = R.drawable.ic_gear, title = "Easier gear available",
@@ -364,13 +405,26 @@ class RideController(
                     ),
                 )
             }
-            is BikeAlert.BatteryLow -> if (settings.batteryAlerts) {
+            is RideAlert.BatteryLow -> if (settings.batteryAlerts) {
                 karoo.dispatch(
                     InRideAlert(
                         id = "mtb-battery-${alert.component}", icon = R.drawable.ic_battery,
                         title = "${alert.component} battery ${alert.status.lowercase()}",
                         detail = "Charge it after the ride", autoDismissMs = 6_000,
                         backgroundColor = R.color.alert_warn_bg, textColor = R.color.alert_text,
+                    ),
+                )
+            }
+            is RideAlert.DescentFinished -> if (settings.descentAlerts) scope.launch {
+                // A trail ridden before: time between its start and end points, rank and PB.
+                // Matched off the tick loop: the library can hold hundreds of trails.
+                val trail = runCatching { MtbRuntime.trails.compare(alert.stats, alert.track) }.getOrNull()
+                karoo.dispatch(
+                    InRideAlert(
+                        id = "mtb-descent", icon = R.drawable.ic_descent,
+                        title = SummaryFormatter.descentAlertTitle(alert.stats, MtbRuntime.units, trail),
+                        detail = SummaryFormatter.descentAlertDetail(alert.stats, MtbRuntime.units, trail), autoDismissMs = 8_000,
+                        backgroundColor = if (trail?.pb == true) R.color.alert_jump_bg else R.color.alert_info_bg, textColor = R.color.alert_text,
                     ),
                 )
             }
@@ -417,6 +471,14 @@ class RideController(
                 ),
             )
         }
+    }
+
+    /** Matches the ride's descents with the trail library (personal bests); the summary carries the results. */
+    private fun withTrails(summary: RideSummary): RideSummary {
+        val runs = runCatching { MtbRuntime.trails.addRide(summary) }
+            .onFailure { Log.w(TAG, "trail library failed", it) }
+            .getOrDefault(emptyList())
+        return if (runs.isEmpty()) summary else summary.copy(trailRuns = runs)
     }
 
     /** Adds the ride to the service tracker; tells the rider when something just became due. */
@@ -491,5 +553,8 @@ class RideController(
         private const val RIDE_TIME_WAIT_MS = 3_000L
         private const val ORPHAN_MAX_AGE_MS = 48L * 3600 * 1000
         private const val WAKE_LOCK_MAX_MS = 12L * 3600 * 1000
+        private const val ICU_FIRST_TRY_MS = 3L * 60 * 1000
+        private const val ICU_RETRY_MS = 5L * 60 * 1000
+        private const val ICU_TRIES = 12
     }
 }

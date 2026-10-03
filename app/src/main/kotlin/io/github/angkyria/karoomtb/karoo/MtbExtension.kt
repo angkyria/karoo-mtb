@@ -7,6 +7,10 @@ import io.hammerhead.karooext.extension.DataTypeImpl
 import io.hammerhead.karooext.extension.KarooExtension
 import io.hammerhead.karooext.internal.Emitter
 import io.hammerhead.karooext.models.FitEffect
+import io.hammerhead.karooext.models.HidePolyline
+import io.hammerhead.karooext.models.HideSymbols
+import io.hammerhead.karooext.models.MapEffect
+import io.hammerhead.karooext.models.ShowSymbols
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +45,38 @@ class MtbExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
         emitter.setCancellable { job.cancel() }
     }
 
+    /** Controller / remote buttons (extension_info BonusAction). */
+    override fun onBonusAction(actionId: String) {
+        Log.i(TAG, "bonus action $actionId")
+        when (actionId) {
+            ACTION_MARK -> controller?.markMoment()
+        }
+    }
+
+    /**
+     * Map layer (extension_info mapLayer="true"): jumps and marked moments as symbols, rough
+     * ground as orange / red lines. A new ride clears the previous one.
+     */
+    override fun startMap(emitter: Emitter<MapEffect>) {
+        val job = scope.launch {
+            var symbols = emptySet<String>()
+            var lines = emptySet<String>()
+            MtbRuntime.map.collect { features ->
+                val enabled = MtbRuntime.settings.mapLayer
+                val newSymbols = if (!enabled) emptyList() else MapLayer.symbols(features)
+                val newLines = if (!enabled) emptyMap() else MapLayer.polylines(features)
+                val staleSymbols = symbols - newSymbols.map { it.id }.toSet()
+                if (staleSymbols.isNotEmpty()) emitter.onNext(HideSymbols(staleSymbols.toList()))
+                if (newSymbols.isNotEmpty()) emitter.onNext(ShowSymbols(newSymbols))
+                (lines - newLines.keys).forEach { emitter.onNext(HidePolyline(it)) }
+                newLines.filterKeys { it !in lines }.values.forEach { emitter.onNext(it) }
+                symbols = newSymbols.map { it.id }.toSet()
+                lines = newLines.keys
+            }
+        }
+        emitter.setCancellable { job.cancel() }
+    }
+
     override fun onDestroy() {
         controller?.stop()
         controller = null
@@ -51,6 +87,7 @@ class MtbExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
 
     companion object {
         const val EXTENSION_ID = "karoo-mtb"
+        const val ACTION_MARK = "mark"
         private const val TAG = "MtbExtension"
     }
 }

@@ -5,6 +5,7 @@
     fitFile="true"
     icon="@drawable/ic_mtb"
     id="karoo-mtb"
+    mapLayer="true"
     scansDevices="false">
     <DataType
         description="@string/dt_panel_desc"
@@ -104,6 +105,18 @@
         typeId="mtb-score" />
     <!-- Bike systems: RockShox Flight Attendant, SRAM AXS, power meter -->
     <DataType
+        description="@string/dt_descent_panel_desc"
+        displayName="@string/dt_descent_panel"
+        graphical="true"
+        icon="@drawable/ic_descent"
+        typeId="descent-panel" />
+    <DataType
+        description="@string/dt_descent_flow_desc"
+        displayName="@string/dt_descent_flow"
+        graphical="false"
+        icon="@drawable/ic_flow"
+        typeId="descent-flow" />
+    <DataType
         description="@string/dt_bike_panel_desc"
         displayName="@string/dt_bike_panel"
         graphical="true"
@@ -127,4 +140,8 @@
         graphical="false"
         icon="@drawable/ic_gear"
         typeId="easier-gears" />
+    <!-- Assign to a controller button: Profiles → (profile) → controller / remote → MTB Dynamics -->
+    <BonusAction
+        actionId="mark"
+        displayName="@string/action_mark" />
 </ExtensionInfo>

@@ -7,7 +7,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 > [!WARNING]
-> **Testing / debug builds (v0.2.0).** This runs on the developer's Karoo 2 and was calibrated
+> **Testing / debug builds (v0.3.0).** This runs on the developer's Karoo 2 and was calibrated
 > with real rides. Releases are test builds: numbers can still change between versions, and parts
 > of it have not been on a real ride yet (see [Testing status](#testing-status)).
 > Please [report bugs](../../issues/new/choose) with logs: [Testing & debugging](#testing--debugging)
@@ -26,13 +26,19 @@ Garmin-style **MTB Dynamics** for the Karoo, built on Hammerhead's
 * **Descending**: time, drop, speed, braking %, Flow and Grit on descents
 * **MTB score**: 0-100 from difficulty, smoothness and airtime
 * **Trail segments**: the ride split into climbs, descents and flat sections (plus your laps), with every metric per segment
+* **Live descents**: a Descent field for the descent you are on, and an alert at the bottom of each one
+* **Trails and personal bests**: descents you ride again are recognised; time between the trail's start and end, rank, PB
+* **Where Flow was lost**: the three spots with the most unnecessary braking, comparable laps, left vs right corners
+* **Karoo map layer**: your jumps, marked moments and rough ground on the map
+* **Mark moment** button: press it after a jump to see what the detector made of it (and to label jumps for tuning)
 * **Bike systems**: RockShox **Flight Attendant**, SRAM **AXS** shifting and the **power meter**, joined with the
   terrain: suspension coach, gear usage per terrain, power and pedalling per terrain, battery alerts
 * **Service tracker**: fork / shock hours, chain kilometres, cog usage and battery history across rides, with reminders
 
 When the ride ends, a summary goes to your phone over **[ntfy](https://ntfy.sh)**. Everything is
 also written into the ride's **FIT file**, so intervals.icu, Garmin Connect, GoldenCheetah and the
-included **analysis script** can use it.
+included **analysis script** can use it. With an intervals.icu API key, the Karoo also writes the
+MTB summary into the activity's description.
 
 ```
 MTB Dynamics · Trail · Mon 21 Sep 17:13
@@ -47,6 +53,14 @@ MTB Dynamics · Trail · Mon 21 Sep 17:13
 ↪️ 30 corners (16 L / 14 R) · max 0.79 g · speed kept 100%
 ⬇️ Descents 10:00 · 482 m ↓ · avg 22.9 km/h · braking 21%
 〰️ Roughness avg 0.31 g
+🏁 6 laps (5 comparable) · fastest Lap 3 4:51 · median 5:02 · smoothest Lap 4 (Flow 0.5) · last laps 3% slower
+
+🏆 Descent 2 · Dragon's back: PB 5:07 (was 5:12) · run 6 · Flow 0.7 (best 0.5)
+⏱ Descent 1 · Trail 2: 5:12 · 3rd of 9 · best 4:58 · Flow 0.8 (best 0.6)
+
+Where Flow was lost (most unnecessary braking)
+1. Descent 2 · at 6.3 km (21:40) · 18.2 m braking · 32→18 km/h
+2. Descent 1 · at 2.9 km (09:12) · 9.5 m braking · 27→15 km/h
 
 Trail segments
 ⬆️ Climb 1: 1.9 km · +152 m · 9:55 · Grit 2.3
@@ -81,9 +95,10 @@ reminders when something is due):
 | Jump detection | 🟡 thresholds still need raw-sensor data from real jumps ([Tuning](#tuning)) |
 | Flight Attendant / AXS / power meter (v0.2) | 🟡 tested with simulated streams, and the analyser on real rides; the first ride with the extension is pending |
 | Service tracker (v0.2) | 🟡 unit-tested; needs real use over many rides |
+| Live descents, trails / PBs, map layer, Mark moment, intervals.icu push, debug bundle (v0.3) | 🟡 unit-tested against simulated rides and the karoo-ext SDK; not on a real ride yet |
 | Karoo 3 | ⚪ not tested yet (same SDK, should work) |
 
-54 Kotlin, 19 Python and 15 JavaScript tests run in CI on every push.
+90 Kotlin, 28 Python and 15 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
 
 ---
 
@@ -94,12 +109,13 @@ reminders when something is due):
 3. [Data fields](#data-fields)
 4. [Bike systems: Flight Attendant, AXS, power meter](#bike-systems-flight-attendant-axs-power-meter)
 5. [Service tracker](#service-tracker)
-6. [FIT file](#fit-file)
-7. [intervals.icu](#intervalsicu)
-8. [Analysis script](#analysis-script)
-9. [How the metrics are calculated](#how-the-metrics-are-calculated)
-10. [Tuning](#tuning) · [Testing & debugging](#testing--debugging)
-11. [Building from source](#building-from-source) · [Website](#website)
+6. [Descents, trails and the map](#descents-trails-and-the-map) · [Insights](#post-ride-insights)
+7. [FIT file](#fit-file)
+8. [intervals.icu](#intervalsicu)
+9. [Analysis script](#analysis-script)
+10. [How the metrics are calculated](#how-the-metrics-are-calculated)
+11. [Tuning](#tuning) · [Testing & debugging](#testing--debugging)
+12. [Building from source](#building-from-source) · [Website](#website)
 
 ## Install on the Karoo
 
@@ -126,6 +142,8 @@ extension needs. Karoo OS must support extensions (any 2024+ firmware).
      Gently toss the Karoo onto a cushion during the test to see a "flight" detected.
 3. Add data fields to a ride profile: *Profiles → (profile) → page → add field → MTB Dynamics*.
    The extension always runs while you record, even with no MTB field on screen.
+4. Optional: assign **Mark moment (MTB Dynamics)** to a controller / remote button in the ride
+   profile.
 
 The extension starts with every recorded ride. To use it only for mountain biking, enable
 **Only in MTB / eMTB ride profiles** (the profile's activity type must be *Mountain Bike* or
@@ -142,13 +160,17 @@ The extension starts with every recorded ride. To use it only for mountain bikin
   public to anyone who knows the name, so keep it random, or use your own server plus an access
   token (`tk_…`) or `user:password`.
 * Optional: attach the full JSON report (all jumps, corners, segments) to the notification.
+* Optional: OpenStreetMap links on the braking spots. Off by default: they put positions into the
+  topic, which on ntfy.sh is readable by anyone who knows its name.
 * Tapping the notification opens `https://intervals.icu/activities` (changeable).
 
 ## Data fields
 
 | Field | Shows |
 |---|---|
-| **MTB Dynamics** (graphical) | Grit, Flow, jumps and last airtime in one field |
+| **MTB Dynamics** (graphical) | Grit, Flow, jumps and last airtime in one field (cells configurable) |
+| **Descent** (graphical) | the descent in progress, else the last one: time, drop, Flow, braking %, jumps, speed |
+| Descent Flow | Flow of the descent in progress (else the last one) |
 | Grit | ride difficulty so far, kGrit |
 | Grit 60s | current difficulty (grit per second, 60 s average) |
 | Lap Grit | current lap, kGrit |
@@ -162,10 +184,15 @@ The extension starts with every recorded ride. To use it only for mountain bikin
 | Roughness | trail vibration (g RMS, 60 s) |
 | Descent Braking | share of descending time spent braking |
 | MTB Score | 0-100 |
-| **Bike Systems** (graphical) | Flight Attendant state, rear cog, power, trail roughness |
+| **Bike Systems** (graphical) | Flight Attendant state, rear cog, power, trail roughness (cells configurable) |
 | **Suspension Coach** (graphical) | Flight Attendant state on green (fits the terrain), red (locked on rough ground) or amber (open while climbing hard), with the effort zone |
 | FA Open Descent | share of descending time with the fork open |
 | Easier Gears Left | larger cogs still available |
+
+The graphical panels show four cells, or six when the field is tall (half a page or more). Which
+cells each panel shows is set in the app under *Data field panels* (any of 29: Grit, Flow, jumps,
+corners, descent, Flight Attendant, gears, power, …). Jump airtime and distance read "not
+available" until the first jump.
 
 After every jump an in-ride alert shows airtime, distance, speed and landing g (like Garmin's
 "Nice jump"). Beeps are optional.
@@ -227,6 +254,48 @@ The defaults follow the RockShox / SRAM service guides for SID / SIDLuxe and an 
 and nearly due (90 %) items are listed in every ntfy summary. The totals are in `service.json`
 next to the rides folder, readable by the analysis script (`--service-json`).
 
+## Descents, trails and the map
+
+**Live descents.** While you ride, a descent starts once the trail is 8 m below the last high
+point (dated back to that point) and ends at its lowest point once the trail climbs 8 m or runs flat
+for 400 m. It counts from the segment threshold (default 15 m). Without a barometer the Karoo's
+grade is integrated instead. The **Descent** field follows it live; at the bottom an alert shows
+time, drop, Flow, braking and jumps (setting, default on). The post-ride trail segments still come
+from the whole-ride split, so the two can differ by a few seconds.
+
+**Trails and personal bests.** When a ride ends, every descent is matched against `trails.json`
+(next to the rides folder). A descent you rode before becomes a new run of that trail, timed
+between the trail's own start and end points on the GPS track (like a Strava segment), so runs
+compare however the descent was cut; anything new becomes "Trail N". Repeats in the same ride
+(laps) are compared too. The alert at the bottom of a descent already says "PB! Trail 3 · 4:12
+(−5 s)" or "Trail 3 · 4:40 · 3rd of 5" (against earlier rides), and the summary lists the trails
+of the ride. Rename or delete trails in the app (*Trails*).
+
+Matching: the run passes within 30 m of the trail's start and then of its end, the stretch between
+is within 20 % of the trail's length, and every point of the trail lies within 45 m of the run
+(20 m on average). The trail's reference is the descending core of its first run.
+
+**Map layer.** The Karoo map shows the ride's jumps, marked moments and rough ground: orange from
+0.9 g vibration (rooty singletrack), red from 1.3 g, for stretches of 5 s or more. A new ride
+clears the old one. Setting, default on.
+
+**Mark moment.** Assign *Mark moment (MTB Dynamics)* to a controller button. A press stores a
+marker (ride folder and FIT `user_marker` event) and shows what the detector made of the last
+flight: "Jump 0.62 s, 3 s ago: counted" or "Flight 0.24 s: not counted (airtime 0.24 s < 0.28)".
+Markers label jumps for [Tuning](#tuning).
+
+## Post-ride insights
+
+In the ntfy summary, `summary.json` and the analysis script's reports:
+
+* **Where Flow was lost**: the three runs of unnecessary braking with the most braking metres
+  (seconds with braking, gaps up to 2 s joined, at least 3 m), with the climb / descent, ride
+  distance and time, and the speed before and after.
+* **Laps**: laps within 15 % of the median lap distance are compared: fastest, median and smoothest
+  lap, and the last third of them vs the first third ("last laps 4% slower").
+* **Corners, left vs right**: the speed kept through left and right corners, with a hint when one
+  side is 5 points worse (from 5 corners per side).
+
 ## FIT file
 
 The extension writes **developer fields** (karoo-ext `FitEffect`) into every ride:
@@ -251,6 +320,8 @@ paired also: `mtb_fa_open_desc` (%), `mtb_fa_lock_rough` (s), `mtb_fa_open_climb
 `mtb_fa_changes`, `mtb_fa_reaction` (s), `mtb_shifts`, `mtb_shifts_km`, `mtb_cog_max` (T),
 `mtb_climb_power` (W), `mtb_climb_wkg`, `mtb_desc_pedal` (%).
 
+**Event messages**: each Mark moment press is a `user_marker` event with `mtb_marker` (its number).
+
 The Karoo itself records the Flight Attendant states (`front_suspension`, `rear_suspension`,
 `suspension_effort_zone`, …), every rear shift (`rear_gear_change` events) and the batteries of
 paired parts (`device_info`), so these are in the FIT file as well.
@@ -265,19 +336,28 @@ technique and should not count. The Karoo therefore evaluates Flow 3 s behind re
 intervals.icu scripts and the analysis script shift those values back.
 
 Every ride is also saved on the Karoo as CSV + JSON (`samples.csv`, `events.jsonl`,
-`summary.json`):
+`summary.json`); the trail library is `trails.json` next to the rides folder:
 
 ```sh
 adb pull /sdcard/Android/data/io.github.angkyria.karoomtb/files/rides
 adb pull /sdcard/Android/data/io.github.angkyria.karoomtb/files/service.json
+adb pull /sdcard/Android/data/io.github.angkyria.karoomtb/files/trails.json
 ```
 
 ## intervals.icu
 
-**Step-by-step setup guide with copy buttons: <https://angkyria.github.io/karoo-mtb/intervals-icu.html>**
-(quick start in 5 minutes; a synthetic sample ride to try it without riding).
+**From the Karoo (optional).** Enter an intervals.icu API key in the app (*intervals.icu*, key from
+intervals.icu → Settings → Developer Settings). The Karoo uploads the ride itself; once the
+activity shows up there, MTB Dynamics writes its summary into the description (score, Grit, Flow,
+jumps, corners, descents, trail PBs), keeping what you wrote. It tries 3 minutes after the ride,
+every 5 minutes for an hour, then whenever the Karoo connects, for 3 days. Optionally it also sets
+the custom fields `MtbGrit`, `MtbFlow`, `MtbJumps`, `MtbMaxAir`, `MtbTotalAir`, `MtbScore`,
+`MtbDescentBraking`, `MtbCorners`, `MtbMaxCornerG` (create them first, see below). *Test the API
+key* and *Send the last ride now* are in the app; the status is under *Last ride*.
 
-The same in Markdown: **[intervals-icu/README.md](intervals-icu/README.md)**: copy-paste custom streams, activity
+**Streams, fields and charts.**
+
+See **[intervals-icu/README.md](intervals-icu/README.md)**: copy-paste custom streams, activity
 fields, interval fields (Grit/Flow/jumps for any selected trail section or lap) and activity
 charts (MTB Dynamics, Jumps, Trail segments, Suspension & gears). They work for Karoo and Garmin
 rides; the Flight Attendant / AXS ones need a Karoo ride with those parts paired.
@@ -306,6 +386,10 @@ python3 tools/mtb_analyze.py --history rides/ --service-json service.json --html
   and lists the longest rejected flights with the reason.
 * Any other ride: estimates Grit and Flow from GPS and altitude (no jumps, no roughness).
 * `--icu-update` puts a short MTB block into the intervals.icu description. Re-running replaces it.
+* The reports include the braking spots, comparable laps, left/right corners and marked moments.
+* `--trails-json trails.json` lists the Karoo's trails with runs, best time and smoothest Flow.
+* `--imu` with markers (or `--labels`) rates each jump sensitivity, `--export-snippets DIR` turns
+  labelled flights into test fixtures (see [Tuning](#tuning)).
 * Flight Attendant / AXS / power meter: the report adds suspension, drivetrain, power and battery
   sections, and the HTML a *Suspension & gears* chart and cog usage per terrain. `--weight` sets
   the rider weight for W/kg (default: the weight on intervals.icu).
@@ -406,6 +490,17 @@ levels). Synthetic rides are in `CalibrationTest.kt`:
 * **Debug: save raw sensor data** stores the 100 Hz accelerometer / gyroscope with each ride
   (`imu.csv.gz`, ~3 MB/h). Ride a few known jumps, pull the ride folder and run
   `mtb_analyze.py --karoo-dir <ride> --imu` to see what each sensitivity would detect.
+* **Label your jumps.** Press *Mark moment* right after each real jump (the alert already says if
+  it counted). With the raw sensor log on, `--imu` then reports per sensitivity how many marked
+  jumps it finds and how many detections had no mark. For things that were *not* jumps (rough
+  ground, a hard compression), write a labels file: one `HH:MM:SS,jump` or `HH:MM:SS,nojump` per
+  line (UTC, as `--imu` prints take-offs) and pass `--labels labels.csv`.
+* **Turn them into tests.** `mtb_analyze.py --karoo-dir <ride> --imu --export-snippets
+  app/src/test/resources/imu` writes each labelled flight as a short IMU snippet (± 3 s, relative
+  time, no GPS) and adds it to `manifest.json`. `JumpFixtureTest` replays every snippet through the
+  detector in CI, so a threshold change that loses a real jump fails the build. Mark a snippet
+  `"knownFailure": true` while working on it. `tools/make_imu_fixtures.py` writes the synthetic
+  ones that are there for now.
 
 ## Testing & debugging
 
@@ -432,6 +527,11 @@ analysed the same way, which is handy for comparing what the extension saw with 
 
 **Jumps.** Turn on *Debug: save raw sensor data*, ride a few known jumps, note their times, then
 run `mtb_analyze.py --karoo-dir <ride> --imu` ([Tuning](#tuning)).
+
+**Debug bundle without adb.** *Send a debug bundle via ntfy* (top of the app) zips the last ride's
+files with GPS positions removed, the app's log and the settings (ntfy topic / token and the
+intervals.icu key hidden) and sends it to your ntfy topic, in 90 KB parts the Karoo can send. Join
+them with `cat mtb-debug-*.zip.* > mtb-debug.zip`.
 
 **Reporting a bug.** [Open an issue](../../issues/new/choose) with the Karoo model and firmware,
 the app version (top of the settings screen), what happened and when, and the logcat output.
@@ -471,7 +571,14 @@ export GPR_USER=<github user> GPR_KEY=$(gh auth token)   # or gpr.user / gpr.key
 
 python3 -m unittest discover -s tools/tests             # analyser tests
 node intervals-icu/test/run.mjs                          # intervals.icu script tests
+ruff check .                                             # Python lint (ruff.toml)
+java -jar ktlint.jar "app/src/**/*.kt" "**/*.kts"       # Kotlin lint (.editorconfig), ktlint 1.5.0
 ```
+
+The formulas exist twice (Kotlin on the Karoo, Python in the analyser). `testdata/scoring_vectors.json`
+holds 1,011 input/output cases written from the analyser by `tools/make_scoring_vectors.py`;
+`ScoringParityTest.kt` and `test_parity.py` both check against it, so changing a formula on one
+side fails the other side's tests until it matches.
 
 **Releases**: push a tag like `v0.2.1`. The workflow builds and tests, then attaches
 `karoo-mtb.apk`, `manifest.json` and the icon to a GitHub release, and the Karoo offers it as an
@@ -497,8 +604,12 @@ app/src/main/kotlin/io/github/angkyria/karoomtb/
   notify/    ntfy messages, HTTP via the Karoo bridge, summary text
   storage/   per-ride CSV/JSON, crash recovery
   service/   service and battery tracker across rides
+  trails/    trail library and matching (personal bests)
   ui/        settings screen
-tools/        mtb_analyze.py (analysis, HTML report, history, intervals.icu API), make_sample_fit.py, make_site_demo.py
+tools/        mtb_analyze.py (entry point) and the mtbdyn package: scoring, loaders, analysis, insights,
+              sram, summary, report, imu, history, icu, cli; make_sample_fit.py, make_imu_fixtures.py,
+              make_scoring_vectors.py, make_site_demo.py
+testdata/     scoring_vectors.json (shared by the Kotlin and Python tests)
 intervals-icu/ custom streams, fields, charts for intervals.icu (+ tests)
 docs/         website (GitHub Pages) with demo reports
 ```

@@ -21,6 +21,7 @@ data class StorageBatch(
     val jumps: List<Jump>,
     val corners: List<Corner>,
     val shifts: List<Shift> = emptyList(),
+    val markers: List<Marker> = emptyList(),
 )
 
 /**
@@ -112,17 +113,24 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     private val storageCorners = ArrayList<Corner>()
     private val shifts = ArrayList<Shift>()
     private val storageShifts = ArrayList<Shift>()
+    private val markers = ArrayList<Marker>()
+    private val storageMarkers = ArrayList<Marker>()
 
-    // Live bike coaching.
-    private var suspensionMatch = SuspensionMatch.NONE
-    private var lockedRoughSec = 0.0
-    private var lowCadenceSec = 0.0
-    private var lastLockedAlertSec = Double.NEGATIVE_INFINITY
-    private var lastShiftAlertSec = Double.NEGATIVE_INFINITY
-    private val batteryAlerted = HashSet<String>()
-    private val pendingAlerts = ArrayList<BikeAlert>()
-    private var faDescentSec = 0.0
-    private var faDescentOpenSec = 0.0
+    // Map layer: jumps, markers and rough sections; the version tells the layer to redraw.
+    private val roughSections = RoughSections()
+    private var mapVersion = 0
+
+    // Live coaching and alerts.
+    private val coach = BikeCoach()
+    private val pendingAlerts = ArrayList<RideAlert>()
+
+    /** Any power, cadence, Flight Attendant or AXS data this ride (else the bike totals are skipped). */
+    private var bikeDataSeen = false
+
+    // Live descents: found by the tracker, reported once Flow has caught up with their last second.
+    private val descents = DescentTracker()
+    private val descentsAwaitingFlow = ArrayList<DescentTracker.Finished>()
+    private var lastDescent: SegmentStats? = null
 
     // ---- Ride lifecycle ---------------------------------------------------------------------
 
@@ -156,15 +164,16 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         storageCorners.clear()
         shifts.clear()
         storageShifts.clear()
-        suspensionMatch = SuspensionMatch.NONE
-        lockedRoughSec = 0.0
-        lowCadenceSec = 0.0
-        lastLockedAlertSec = Double.NEGATIVE_INFINITY
-        lastShiftAlertSec = Double.NEGATIVE_INFINITY
-        batteryAlerted.clear()
+        markers.clear()
+        storageMarkers.clear()
+        roughSections.reset()
+        mapVersion++
+        coach.reset()
         pendingAlerts.clear()
-        faDescentSec = 0.0
-        faDescentOpenSec = 0.0
+        bikeDataSeen = false
+        descents.reset()
+        descentsAwaitingFlow.clear()
+        lastDescent = null
         // Bike state is per ride (the next ride may be on another bike); the streams refill it.
         power = Double.NaN
         cadence = Double.NaN
@@ -214,6 +223,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         restoredCorners: List<Corner>,
         newConfig: MtbConfig = config,
         restoredShifts: List<Shift> = emptyList(),
+        restoredMarkers: List<Marker> = emptyList(),
     ) = synchronized(lock) {
         start(startWallMs, nowElapsedMs - (nowWallMs - startWallMs), newConfig)
         var lap = 0
@@ -231,15 +241,16 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             lapTotals[lapTotals.lastIndex].addImmediate(sample)
             lapTotals[lapTotals.lastIndex].addProcessed(sample)
             cumDistance = sample.distanceM
-            if (sample.descending && sample.faFront >= 0) {
-                faDescentSec += sample.dt
-                if (sample.faFront == FaState.OPEN) faDescentOpenSec += sample.dt
-            }
+            coach.onRestored(sample)
+            if (sample.hasBikeData) bikeDataSeen = true
         }
         processedUpTo = samples.lastIndex
         jumps += restoredJumps
         corners += restoredCorners
         shifts += restoredShifts
+        markers += restoredMarkers
+        // Replay the descent tracker silently so numbering and a descent in progress continue.
+        for (i in samples.indices) descents.onSample(samples, i, config.segmentMinElevationM)
     }
 
     // ---- Context from Karoo streams ---------------------------------------------------------
@@ -325,13 +336,52 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     fun setBattery(component: String, status: String, percent: Int? = null) = synchronized(lock) {
         if (this.status == RideStatus.IDLE) return@synchronized
         batteries[component] = BatteryInfo(component, status, percent)
-        if ((status == "LOW" || status == "CRITICAL") && batteryAlerted.add(component)) {
-            pendingAlerts += BikeAlert.BatteryLow(component, status)
-        }
+        coach.onBattery(component, status, pendingAlerts)
+    }
+
+    /**
+     * The rider marked this moment (controller button). Null when not recording. The marker
+     * carries the longest flight that landed within [MARK_FLIGHT_WINDOW_SEC] before the press
+     * (a jump, not the bump right after its landing).
+     */
+    fun markMoment(wallMs: Long, elapsedMs: Long): Marker? = synchronized(lock) {
+        if (status != RideStatus.RECORDING) return null
+        val nowSec = elapsedMs / 1000.0
+        val flight = jumpDetector.recentFlights.filter { nowSec - (it.takeoffSec + it.airSec) in -1.0..MARK_FLIGHT_WINDOW_SEC }.maxByOrNull { it.airSec }
+        val ago = flight?.let { nowSec - (it.takeoffSec + it.airSec) }
+        val marker = Marker(
+            n = markers.size + 1,
+            wallMs = wallMs,
+            offsetSec = (elapsedMs - rideStartElapsedMs) / 1000.0,
+            lat = lat.takeUnless { it.isNaN() },
+            lon = lon.takeUnless { it.isNaN() },
+            flightAgoSec = ago?.coerceAtLeast(0.0),
+            flightAirSec = flight?.airSec?.takeIf { ago != null },
+            flightLandingG = flight?.landingG?.takeIf { ago != null },
+            flightVerdict = flight?.reason?.takeIf { ago != null },
+        )
+        markers += marker
+        storageMarkers += marker
+        mapVersion++
+        marker
+    }
+
+    /** Changes whenever [mapFeatures] has something new. */
+    val mapVersionNow: Int get() = synchronized(lock) { mapVersion }
+
+    /** Jumps, markers and rough sections with a position, for the Karoo map layer. */
+    fun mapFeatures(): MapFeatures = synchronized(lock) {
+        MapFeatures(
+            ride = rideStartWallMs,
+            version = mapVersion,
+            jumps = jumps.filter { it.lat != null && it.lon != null },
+            markers = markers.filter { it.lat != null && it.lon != null },
+            rough = roughSections.sections.toList(),
+        )
     }
 
     /** Coaching alerts raised since the last call. */
-    fun pollAlerts(): List<BikeAlert> = synchronized(lock) {
+    fun pollAlerts(): List<RideAlert> = synchronized(lock) {
         pendingAlerts.toList().also { pendingAlerts.clear() }
     }
 
@@ -437,10 +487,14 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             rearTeeth = rearTeeth,
         )
         airborneThisSecond = jumpDetector.airborne
-        coachBike(sample, tSec)
+        val recent = (samples.takeLast(4) + sample).map { it.rough }.filter { !it.isNaN() }
+        coach.onSecond(sample, if (recent.isEmpty()) Double.NaN else recent.average(), tSec, pendingAlerts)
+        if (sample.hasBikeData) bikeDataSeen = true
+        if (roughSections.onSecond(sample)) mapVersion++
         samples += sample
         totals.addImmediate(sample)
         lapTotals[sample.lap].addImmediate(sample)
+        descents.onSample(samples, samples.lastIndex, config.segmentMinElevationM)?.let { descentsAwaitingFlow += it }
 
         var flowOut = 0.0
         var brakeOut = 0.0
@@ -450,6 +504,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             brakeOut = max(brakeOut, processed.brake)
         }
         refineJumpHeights(elapsedMs)
+        reportFinishedDescents()
 
         val landed = jumpsForNextRecord.maxByOrNull { it.airSec }
         jumpsForNextRecord.clear()
@@ -468,14 +523,25 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
 
     fun live(): LiveMetrics = synchronized(lock) { liveLocked() }
 
-    fun sessionValues(): SessionValues = synchronized(lock) { sessionLocked() }
+    /**
+     * FIT session values. The bike-system totals re-segment the whole ride, so they are computed
+     * on a snapshot outside the lock (the 100 Hz sensor thread needs it), and only when a power
+     * meter, Flight Attendant or AXS sent data this ride.
+     */
+    fun sessionValues(): SessionValues {
+        val (base, bikeInput) = synchronized(lock) {
+            sessionLocked() to if (bikeDataSeen && samples.isNotEmpty()) BikeInput(samples.toList(), shifts.toList(), faMode, faBias, riderWeightKg) else null
+        }
+        return if (bikeInput == null) base else base.withBike(bikeInput, config.segmentMinElevationM)
+    }
 
     fun drainForStorage(): StorageBatch = synchronized(lock) {
-        StorageBatch(storageSamples.toList(), storageJumps.toList(), storageCorners.toList(), storageShifts.toList()).also {
+        StorageBatch(storageSamples.toList(), storageJumps.toList(), storageCorners.toList(), storageShifts.toList(), storageMarkers.toList()).also {
             storageSamples.clear()
             storageJumps.clear()
             storageCorners.clear()
             storageShifts.clear()
+            storageMarkers.clear()
         }
     }
 
@@ -500,7 +566,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             batteries = batteries.values.toList(),
             faMode = faMode,
             faBias = faBias,
-        )
+        ).copy(markers = markers.toList())
     }
 
     // ---- Internals -------------------------------------------------------------------------
@@ -535,7 +601,10 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     private fun acceptJump(raw: RawJump): Jump? {
         val takeoffElapsedMs = (raw.takeoffSec * 1000.0).roundToLong()
         val v0 = takeoffSpeed(takeoffElapsedMs)
-        if (v0 < config.jumpMinSpeed) return null
+        if (v0 < config.jumpMinSpeed) {
+            jumpDetector.rejectLast(String.format(java.util.Locale.ROOT, "take-off speed %.0f km/h", v0 * 3.6))
+            return null
+        }
         val distance = v0 * raw.airSec
         val jump = Jump(
             n = jumps.size + 1,
@@ -553,6 +622,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             lon = lon.takeUnless { it.isNaN() },
         )
         jumps += jump
+        mapVersion++
         jumpsAwaitingAltitude += jumps.lastIndex
         jumpsForNextRecord += jump
         gritBonus += Scoring.GRIT_PER_AIR_SECOND * raw.airSec
@@ -615,35 +685,57 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         return my + slope * (atMs - mx)
     }
 
-    /** Live suspension / gear coaching for the second that just closed. */
-    private fun coachBike(sample: SecondSample, tSec: Double) {
-        if (sample.descending && sample.faFront >= 0) {
-            faDescentSec += sample.dt
-            if (sample.faFront == FaState.OPEN) faDescentOpenSec += sample.dt
+    /** Descents whose last second has been through Flow: stats and an alert. */
+    private fun reportFinishedDescents() {
+        val iterator = descentsAwaitingFlow.iterator()
+        while (iterator.hasNext()) {
+            val d = iterator.next()
+            if (d.end > processedUpTo) continue
+            iterator.remove()
+            val stats = RangeStats.compute(
+                d.number, "DESCENT", "Descent ${d.number}", samples, d.start, d.end, jumps, corners, rideStartWallMs, shifts, riderWeightKg,
+            )
+            lastDescent = stats
+            pendingAlerts += RideAlert.DescentFinished(stats, Tracks.withMargins(0, samples, d.start, d.end, rideStartWallMs))
         }
-        val recent = (samples.takeLast(4) + sample).map { it.rough }.filter { !it.isNaN() }
-        val rough = if (recent.isEmpty()) Double.NaN else recent.average()
-        suspensionMatch = when {
-            sample.faFront < 0 -> SuspensionMatch.NONE
-            !sample.moving -> SuspensionMatch.OK
-            sample.faFront == FaState.LOCK && !rough.isNaN() && rough >= BikeAnalytics.LOCKED_ROUGH_G -> SuspensionMatch.LOCKED_ROUGH
-            sample.faFront == FaState.OPEN && !sample.power.isNaN() && sample.power >= BikeAnalytics.HARD_CLIMB_W &&
-                sample.grade >= BikeAnalytics.CLIMB_GRADE -> SuspensionMatch.OPEN_HARD_CLIMB
-            else -> SuspensionMatch.OK
+    }
+
+    private fun liveDescentLocked(): LiveDescent? {
+        val range = descents.currentRange(samples.lastIndex) ?: return null
+        var distance = 0.0
+        var movingSec = 0.0
+        var flow = 0.0
+        var flowDist = 0.0
+        var processedSec = 0.0
+        var brakingSec = 0.0
+        var maxLat = 0.0
+        for (i in range) {
+            val s = samples[i]
+            distance += s.dDist
+            if (!s.moving) continue
+            movingSec += s.dt
+            maxLat = max(maxLat, s.latG)
+            if (s.processed) {
+                flow += s.flow
+                flowDist += s.dDist
+                processedSec += s.dt
+                if (s.braking) brakingSec += s.dt
+            }
         }
-        lockedRoughSec = if (suspensionMatch == SuspensionMatch.LOCKED_ROUGH) lockedRoughSec + sample.dt else 0.0
-        if (lockedRoughSec >= LOCKED_ALERT_AFTER_SEC && tSec - lastLockedAlertSec >= ALERT_COOLDOWN_SEC) {
-            pendingAlerts += BikeAlert.LockedOnRough
-            lastLockedAlertSec = tSec
-        }
-        // Grinding a steep pitch at low cadence while easier gears are left.
-        val grinding = sample.moving && sample.grade >= BikeAnalytics.STEEP_GRADE && !sample.cadence.isNaN() &&
-            sample.cadence in 1.0..55.0 && sample.rearGear > 1
-        lowCadenceSec = if (grinding) lowCadenceSec + sample.dt else 0.0
-        if (lowCadenceSec >= SHIFT_ALERT_AFTER_SEC && tSec - lastShiftAlertSec >= SHIFT_ALERT_COOLDOWN_SEC) {
-            pendingAlerts += BikeAlert.ShiftDown(sample.rearGear - 1)
-            lastShiftAlertSec = tSec
-        }
+        val first = samples[range.first]
+        val last = samples[range.last]
+        val startOffset = (first.elapsedMs - rideStartElapsedMs) / 1000.0
+        return LiveDescent(
+            number = descents.number,
+            timeSec = (last.elapsedMs - first.elapsedMs) / 1000.0 + last.dt,
+            distanceM = distance,
+            dropM = descents.currentDropM,
+            avgSpeedMs = if (movingSec > 0) distance / movingSec else 0.0,
+            flowScore = Scoring.flowScore(flow, flowDist),
+            brakingPct = if (processedSec > 0) 100.0 * brakingSec / processedSec else 0.0,
+            jumps = jumps.count { it.offsetSec >= startOffset - 1.0 },
+            maxLateralG = maxLat,
+        )
     }
 
     private fun addCorner(c: CornerDetector.FinishedCorner) {
@@ -723,14 +815,16 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             hasGyroscope = hasGyroscope,
             faFront = faFront,
             effortZone = effortZone,
-            suspensionMatch = suspensionMatch,
+            suspensionMatch = coach.suspensionMatch,
             roughNow = samples.takeLast(5).map { it.rough }.filter { !it.isNaN() }.takeIf { it.isNotEmpty() }?.average(),
-            faOpenDescentPct = if (faDescentSec >= 10) 100.0 * faDescentOpenSec / faDescentSec else null,
+            faOpenDescentPct = coach.faOpenDescentPct,
             rearGear = rearGear,
             rearTeeth = rearTeeth,
             easierGearsLeft = if (rearGear > 0) rearGear - 1 else -1,
             shifts = shifts.size,
             power = power.takeUnless { it.isNaN() },
+            descent = liveDescentLocked(),
+            lastDescent = lastDescent,
         )
     }
 
@@ -767,17 +861,26 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             descentFlow = Scoring.flowScore(totals.descentFlow, totals.descentFlowDist),
             avgRough = if (totals.roughN > 0) totals.roughSum / totals.roughN else 0.0,
             flowLagSec = config.flowLagSec,
-        ).withBike()
+        )
     }
 
-    /** Adds the Flight Attendant / AXS / power totals (segmentation is linear, fine every 15 s). */
-    private fun SessionValues.withBike(): SessionValues {
-        if (samples.isEmpty()) return this
-        val ranges = Segmenter.split(samples, config.segmentMinElevationM)
+    /** What the bike totals need, copied under the lock. Samples' bike fields never change after the second closes. */
+    private class BikeInput(
+        val samples: List<SecondSample>,
+        val shifts: List<Shift>,
+        val faMode: Int?,
+        val faBias: Int?,
+        val weightKg: Double,
+    )
+
+    /** Adds the Flight Attendant / AXS / power totals. */
+    private fun SessionValues.withBike(input: BikeInput, segmentMinElevationM: Double): SessionValues {
+        val samples = input.samples
+        val ranges = Segmenter.split(samples, segmentMinElevationM)
         val terrain = BikeAnalytics.terrain(samples, ranges)
-        val su = BikeAnalytics.suspension(samples, terrain, ranges, faMode, faBias)
-        val dr = BikeAnalytics.drivetrain(samples, terrain, ranges, this@MtbEngine.shifts)
-        val pw = BikeAnalytics.power(samples, terrain, riderWeightKg)
+        val su = BikeAnalytics.suspension(samples, terrain, ranges, input.faMode, input.faBias)
+        val dr = BikeAnalytics.drivetrain(samples, terrain, ranges, input.shifts)
+        val pw = BikeAnalytics.power(samples, terrain, input.weightKg)
         return copy(
             faOpenDescentPct = su?.descents?.open,
             faLockedRoughSec = su?.lockedRoughSec,
@@ -862,9 +965,6 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         private const val SPEED_HISTORY_MS = 10_000L
         private const val CORNER_FEED_SEC = 0.1
         private const val ALTITUDE_SETTLE_MS = 3_000L
-        private const val LOCKED_ALERT_AFTER_SEC = 5.0
-        private const val ALERT_COOLDOWN_SEC = 120.0
-        private const val SHIFT_ALERT_AFTER_SEC = 8.0
-        private const val SHIFT_ALERT_COOLDOWN_SEC = 90.0
+        const val MARK_FLIGHT_WINDOW_SEC = 15.0
     }
 }

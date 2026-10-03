@@ -1,5 +1,6 @@
 package io.github.angkyria.karoomtb.engine
 
+import java.util.Locale
 import kotlin.math.floor
 import kotlin.math.sqrt
 
@@ -16,6 +17,14 @@ data class RawJump(
 }
 
 /**
+ * Any flight the detector saw, accepted or not, for the "mark" button and offline tuning.
+ * [reason] is empty when it passed the accelerometer checks.
+ */
+data class Flight(val takeoffSec: Double, val airSec: Double, val meanAirG: Double, val landingG: Double, val reason: String) {
+    val accepted: Boolean get() = reason.isEmpty()
+}
+
+/**
  * Take-off → airborne → landing state machine on the filtered acceleration magnitude.
  *
  * While the bike is in the air the head unit is in free fall and |a| drops well below 1 g.
@@ -29,6 +38,11 @@ class JumpDetector(private var config: MtbConfig) {
         private set
 
     val airborne: Boolean get() = state == State.AIR
+
+    private val flights = ArrayDeque<Flight>()
+
+    /** Recent completed flights (from [MIN_FLIGHT_SEC]), accepted or rejected, oldest first. */
+    val recentFlights: List<Flight> get() = flights.toList()
 
     private var airStart = 0.0
     private var landTime = 0.0
@@ -48,6 +62,7 @@ class JumpDetector(private var config: MtbConfig) {
     fun reset() {
         state = State.GROUND
         cooldownUntil = 0.0
+        flights.clear()
     }
 
     /** @return a finished, validated flight or null. */
@@ -76,6 +91,7 @@ class JumpDetector(private var config: MtbConfig) {
                     // Far too long for a jump: dropped or thrown device.
                     state = State.GROUND
                     cooldownUntil = tSec + 1.0
+                    remember(Flight(airStart, tSec - airStart, if (countG > 0) sumG / countG else 1.0, 0.0, "longer than ${config.jumpMaxAirSec} s"))
                 }
             }
 
@@ -111,11 +127,28 @@ class JumpDetector(private var config: MtbConfig) {
     private fun validate(): RawJump? {
         val air = landTime - airStart
         val meanG = if (countG > 0) sumG / countG else 1.0
-        if (air < config.sensitivity.minAirSec || air > config.jumpMaxAirSec) return null
-        if (meanG > config.jumpMaxMeanAirG) return null
-        if (peakLandingG < config.sensitivity.minLandingG) return null
+        val s = config.sensitivity
+        val reason = when {
+            air < s.minAirSec -> String.format(Locale.ROOT, "airtime %.2f s < %.2f", air, s.minAirSec)
+            air > config.jumpMaxAirSec -> "longer than ${config.jumpMaxAirSec} s"
+            meanG > config.jumpMaxMeanAirG -> String.format(Locale.ROOT, "mean %.2f g in flight", meanG)
+            peakLandingG < s.minLandingG -> String.format(Locale.ROOT, "landing %.2f g < %.2f", peakLandingG, s.minLandingG)
+            else -> ""
+        }
+        if (air >= MIN_FLIGHT_SEC) remember(Flight(airStart, air, meanG, peakLandingG, reason))
+        if (reason.isNotEmpty()) return null
         val rotationDeg = Math.toDegrees(sqrt(rotX * rotX + rotY * rotY + rotZ * rotZ))
         return RawJump(airStart, landTime, air, meanG, peakLandingG, rotationDeg)
+    }
+
+    /** The engine rejected an accepted flight later (take-off speed). */
+    fun rejectLast(reason: String) {
+        flights.removeLastOrNull()?.let { flights.addLast(it.copy(reason = reason)) }
+    }
+
+    private fun remember(flight: Flight) {
+        flights.addLast(flight)
+        while (flights.size > MAX_RECENT_FLIGHTS) flights.removeFirst()
     }
 
     companion object {
@@ -126,5 +159,9 @@ class JumpDetector(private var config: MtbConfig) {
         const val LANDING_WINDOW_SEC = 0.35
 
         const val COOLDOWN_SEC = 0.25
+
+        /** Shorter dips below the take-off threshold are not reported as flights. */
+        const val MIN_FLIGHT_SEC = 0.08
+        private const val MAX_RECENT_FLIGHTS = 20
     }
 }

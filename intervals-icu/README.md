@@ -24,6 +24,10 @@ the `mtb_*` fields when the open ride has them. No ride yet? Upload the syntheti
 3. The chart [charts/mtb_dynamics.js](charts/mtb_dynamics.js).
 4. **Actions → Reprocess File** on the ride.
 
+> Want just a summary without the setup? With an intervals.icu API key in the MTB Dynamics app
+> (0.3+), the Karoo writes an MTB block into each activity's description, and can fill the custom
+> activity fields below once you have created them.
+
 The scripts here also work for **Garmin Edge** rides: they fall back to Garmin's own MTB
 Dynamics fields (`grit`, `flow`, `total_grit`, `avg_flow`, `jump_count`, jump messages).
 

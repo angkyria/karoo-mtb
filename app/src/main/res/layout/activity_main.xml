@@ -29,6 +29,11 @@
             style="@style/ActionButton"
             android:text="Test sensors (5 s)" />
 
+        <Button
+            android:id="@+id/debug_bundle"
+            style="@style/ActionButton"
+            android:text="Send a debug bundle via ntfy (last ride + log, no GPS)" />
+
         <TextView
             android:id="@+id/sensor_result"
             android:layout_width="match_parent"
@@ -154,6 +159,11 @@
             style="@style/Toggle"
             android:text="Attach the full JSON report" />
 
+        <Switch
+            android:id="@+id/ntfy_map_links"
+            style="@style/Toggle"
+            android:text="Map links for the braking spots (sends positions to the topic)" />
+
         <Button
             android:id="@+id/test"
             style="@style/ActionButton"
@@ -166,6 +176,55 @@
             android:layout_height="wrap_content" />
 
         <!-- Detection -->
+        <TextView
+            style="@style/Section"
+            android:text="intervals.icu (optional)" />
+
+        <TextView
+            style="@style/Label"
+            android:text="The Karoo uploads your rides to intervals.icu. With an API key, MTB Dynamics also writes its summary into the activity's description once it shows up there (Settings → Developer Settings on intervals.icu)." />
+
+        <Switch
+            android:id="@+id/icu_enabled"
+            style="@style/Toggle"
+            android:text="Write the MTB summary into the intervals.icu activity" />
+
+        <TextView
+            style="@style/Label"
+            android:text="API key" />
+
+        <EditText
+            android:id="@+id/icu_key"
+            style="@style/Input"
+            android:inputType="textPassword" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Athlete id (0 = the owner of the key)" />
+
+        <EditText
+            android:id="@+id/icu_athlete"
+            style="@style/Input" />
+
+        <Switch
+            android:id="@+id/icu_fields"
+            style="@style/Toggle"
+            android:text="Also set the custom fields MtbGrit, MtbFlow, MtbJumps, MtbScore… (create them first)" />
+
+        <Button
+            android:id="@+id/icu_test"
+            style="@style/ActionButton"
+            android:text="Test the API key" />
+
+        <Button
+            android:id="@+id/icu_send"
+            style="@style/ActionButton"
+            android:text="Send the last ride to intervals.icu now" />
+
+        <TextView
+            android:id="@+id/icu_result"
+            style="@style/Label" />
+
         <TextView
             style="@style/Section"
             android:text="Detection" />
@@ -188,6 +247,16 @@
             android:id="@+id/jump_beep"
             style="@style/Toggle"
             android:text="Beep after each jump" />
+
+        <Switch
+            android:id="@+id/alert_descent"
+            style="@style/Toggle"
+            android:text="Show an alert at the bottom of each descent" />
+
+        <Switch
+            android:id="@+id/map_layer"
+            style="@style/Toggle"
+            android:text="Show jumps, marked moments and rough ground on the Karoo map" />
 
         <Switch
             android:id="@+id/mtb_only"
@@ -224,6 +293,34 @@
             android:text="Alert when an AXS or Flight Attendant battery is low" />
 
         <!-- Service tracker (filled by ServiceSection.kt) -->
+        <TextView
+            style="@style/Section"
+            android:text="Data field panels" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Pick what the graphical MTB Dynamics, Bike Systems and Descent fields show. Small fields show the first four cells." />
+
+        <LinearLayout
+            android:id="@+id/panel_items"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            style="@style/Section"
+            android:text="Trails" />
+
+        <TextView
+            android:id="@+id/trail_summary"
+            style="@style/Label" />
+
+        <LinearLayout
+            android:id="@+id/trail_items"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
         <TextView
             style="@style/Section"
             android:text="Service tracker" />

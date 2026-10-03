@@ -3,6 +3,9 @@ package io.github.angkyria.karoomtb
 import android.content.Context
 import io.github.angkyria.karoomtb.engine.MtbConfig
 import io.github.angkyria.karoomtb.engine.Sensitivity
+import io.github.angkyria.karoomtb.karoo.Panel
+import io.github.angkyria.karoomtb.karoo.PanelCell
+import io.github.angkyria.karoomtb.notify.IcuConfig
 import io.github.angkyria.karoomtb.notify.NtfyRequest
 import io.github.angkyria.karoomtb.notify.NtfyTarget
 import java.security.SecureRandom
@@ -40,6 +43,31 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("ntfy_attach", false)
         set(v) = prefs.edit().putBoolean("ntfy_attach", v).apply()
 
+    /** OpenStreetMap links on the braking spots: puts GPS positions into the ntfy message. */
+    var ntfyMapLinks: Boolean
+        get() = prefs.getBoolean("ntfy_map_links", false)
+        set(v) = prefs.edit().putBoolean("ntfy_map_links", v).apply()
+
+    /** intervals.icu: put the MTB block into the description of the uploaded activity. */
+    var icuEnabled: Boolean
+        get() = prefs.getBoolean("icu_enabled", false)
+        set(v) = prefs.edit().putBoolean("icu_enabled", v).apply()
+
+    /** intervals.icu → Settings → Developer Settings → API key. */
+    var icuApiKey: String
+        get() = prefs.getString("icu_key", null) ?: ""
+        set(v) = prefs.edit().putString("icu_key", v.trim()).apply()
+
+    /** Athlete id ("0" = the owner of the API key). */
+    var icuAthleteId: String
+        get() = prefs.getString("icu_athlete", null) ?: "0"
+        set(v) = prefs.edit().putString("icu_athlete", v.trim().ifEmpty { "0" }).apply()
+
+    /** Also set the custom activity fields (MtbGrit, MtbFlow, …; they must exist on intervals.icu). */
+    var icuFields: Boolean
+        get() = prefs.getBoolean("icu_fields", false)
+        set(v) = prefs.edit().putBoolean("icu_fields", v).apply()
+
     /** Rides with less moving time than this are not sent (e.g. a discarded test ride). */
     var minNotifyMinutes: Int
         get() = prefs.getInt("min_notify_min", 3)
@@ -66,6 +94,16 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("fit_native", true)
         set(v) = prefs.edit().putBoolean("fit_native", v).apply()
 
+    /** Jumps, marked moments and rough sections on the Karoo map. */
+    var mapLayer: Boolean
+        get() = prefs.getBoolean("map_layer", true)
+        set(v) = prefs.edit().putBoolean("map_layer", v).apply()
+
+    /** In-ride alert at the bottom of each descent (time, drop, Flow, braking, jumps). */
+    var descentAlerts: Boolean
+        get() = prefs.getBoolean("alert_descent", true)
+        set(v) = prefs.edit().putBoolean("alert_descent", v).apply()
+
     /** In-ride alert when Flight Attendant stays in Lock on rough ground. */
     var suspensionAlerts: Boolean
         get() = prefs.getBoolean("alert_suspension", true)
@@ -90,7 +128,22 @@ class Settings(context: Context) {
         get() = prefs.getInt("segment_min_elev", 15)
         set(v) = prefs.edit().putInt("segment_min_elev", v.coerceIn(5, 100)).apply()
 
+    /** The cells of a graphical panel field (6; small fields show the first 4). */
+    fun panelCells(panel: Panel): List<PanelCell> = PanelCell.parse(prefs.getString("panel_${panel.typeId}", null), panel.defaults)
+
+    fun setPanelCells(panel: Panel, cells: List<PanelCell>) {
+        prefs.edit().putString("panel_${panel.typeId}", cells.joinToString(",") { it.name }).apply()
+    }
+
     fun mtbConfig(): MtbConfig = MtbConfig(sensitivity = sensitivity, segmentMinElevationM = segmentMinElevationM.toDouble())
+
+    /** All settings for a bug report, with the ntfy topic / token and the intervals.icu key hidden. */
+    fun debugDump(): String {
+        val secret = setOf("ntfy_topic", "ntfy_token", "icu_key")
+        return prefs.all.toSortedMap().entries.joinToString("\n") { (k, v) -> "$k = ${if (k in secret && v.toString().isNotEmpty()) "***" else v}" }
+    }
+
+    fun icuConfig(): IcuConfig = IcuConfig(icuEnabled, icuApiKey, icuAthleteId, icuFields)
 
     fun ntfyTarget(): NtfyTarget = NtfyTarget(ntfyServer, ntfyTopic, ntfyToken, ntfyPriority, ntfyClickUrl)
 

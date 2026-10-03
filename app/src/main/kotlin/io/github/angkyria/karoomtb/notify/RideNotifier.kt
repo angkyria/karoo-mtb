@@ -3,6 +3,7 @@ package io.github.angkyria.karoomtb.notify
 import android.util.Log
 import io.github.angkyria.karoomtb.Settings
 import io.github.angkyria.karoomtb.engine.RideSummary
+import io.github.angkyria.karoomtb.storage.DebugBundle
 import io.github.angkyria.karoomtb.storage.NtfyStatus
 import io.github.angkyria.karoomtb.storage.RideStore
 import kotlinx.serialization.encodeToString
@@ -63,7 +64,9 @@ class RideNotifier(
             return SendResult(false, 0, "invalid ntfy topic")
         }
         store.setNtfyStatus(ride, NtfyStatus(NtfyStatus.PENDING))
-        val text = SummaryFormatter.markdown(summary, units, runCatching { notices(units) }.getOrDefault(emptyList()))
+        val text = SummaryFormatter.markdown(
+            summary, units, runCatching { notices(units) }.getOrDefault(emptyList()), mapLinks = settings.ntfyMapLinks,
+        )
         val request = NtfyRequest.message(target, SummaryFormatter.title(summary), text)
         val result = sender.send(request, waitForConnection, timeoutMs)
         val state = when {
@@ -96,6 +99,24 @@ class RideNotifier(
         }
     }
 
+    /**
+     * Sends a file as ntfy attachment(s), in parts the Karoo bridge accepts (join with cat).
+     * Does not wait for a connection.
+     */
+    suspend fun sendFile(name: String, bytes: ByteArray, text: String): SendResult {
+        val target = settings.ntfyTarget()
+        if (!NtfyRequest.isValidTopic(target.topic)) return SendResult(false, 0, "invalid topic")
+        val parts = DebugBundle.parts(bytes)
+        var last = SendResult(false, 0, "empty")
+        for ((i, part) in parts.withIndex()) {
+            val file = if (parts.size == 1) name else String.format(Locale.ROOT, "%s.%03d", name, i + 1)
+            val message = if (parts.size == 1) text else "$text · part ${i + 1}/${parts.size}, join: cat $name.* > $name"
+            last = sender.send(NtfyRequest.attachment(target, file, part, message), waitForConnection = false, timeoutMs = 60_000)
+            if (!last.ok) return last
+        }
+        return last.copy(detail = "${parts.size} part${if (parts.size == 1) "" else "s"}, ${bytes.size / 1024} KB")
+    }
+
     /** Sends a short test message; does not wait for a connection. */
     suspend fun test(units: Units): SendResult {
         val target = settings.ntfyTarget()
@@ -107,7 +128,8 @@ class RideNotifier(
 
     /** The full jump list can be long; keep the attachment below the Karoo's 100 KB limit. */
     private fun trimmed(summary: RideSummary): RideSummary {
-        var s = summary
+        // The descent GPS tracks are only for trail recognition on the Karoo.
+        var s = summary.copy(descentTracks = emptyList())
         while (RideStore.json.encodeToString(s).length > NtfyRequest.MAX_BODY_BYTES && s.jumps.list.isNotEmpty()) {
             s = s.copy(jumps = s.jumps.copy(list = s.jumps.list.take(s.jumps.list.size / 2)))
         }

@@ -1,0 +1,19 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 160
+ktlint_code_style = intellij_idea
+# The code keeps short calls and signatures on one line; these wrapping rules would reflow most files.
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_multiline-if-else = disabled
+ktlint_standard_parameter-list-wrapping = disabled
+ktlint_standard_condition-wrapping = disabled
+ktlint_standard_statement-wrapping = disabled

@@ -49,6 +49,7 @@ class RideSim(val engine: MtbEngine = MtbEngine(), seed: Long = 42, private val 
         vibrationG: Double = 0.05,
         /** Called at the start of each second, e.g. to feed bike streams (power, Flight Attendant, gears). */
         each: (Int) -> Unit = {},
+        location: ((Int) -> GeoPoint?)? = null,
     ) {
         for (i in 0 until seconds) {
             each(i)
@@ -56,6 +57,7 @@ class RideSim(val engine: MtbEngine = MtbEngine(), seed: Long = 42, private val 
             engine.updateSpeed(v, elapsedMs)
             engine.updateGrade(grade(i))
             engine.updateAltitude(altitude(i))
+            location?.invoke(i)?.let { engine.updateLocation(it.lat, it.lon, null) }
             distance += v
             engine.updateDistance(distance)
             val stepMs = 1000.0 / rateHz

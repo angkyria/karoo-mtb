@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import io.github.angkyria.karoomtb.engine.Corner
 import io.github.angkyria.karoomtb.engine.Jump
+import io.github.angkyria.karoomtb.engine.Marker
 import io.github.angkyria.karoomtb.engine.RideSummary
 import io.github.angkyria.karoomtb.engine.SecondSample
 import io.github.angkyria.karoomtb.engine.Shift
@@ -34,7 +35,7 @@ data class NtfyStatus(val state: String, val detail: String = "", val atWallMs: 
 }
 
 @Serializable
-private data class StoredEvent(val jump: Jump? = null, val corner: Corner? = null, val shift: Shift? = null)
+private data class StoredEvent(val jump: Jump? = null, val corner: Corner? = null, val shift: Shift? = null, val marker: Marker? = null)
 
 /**
  * One directory per ride (named after the start time) under the app's external files dir, so
@@ -42,14 +43,19 @@ private data class StoredEvent(val jump: Jump? = null, val corner: Corner? = nul
  *
  *  - meta.json      ride metadata
  *  - samples.csv    one row per second (the same data that goes into the FIT file and more)
- *  - events.jsonl   jumps and corners
+ *  - events.jsonl   jumps, corners, shifts and marked moments
  *  - summary.json   end-of-ride summary (also what is sent over ntfy)
  *  - ntfy.json      delivery status of the ntfy notification
+ *  - icu.json       delivery status of the intervals.icu description (when enabled)
  *
  * Also lets the extension resume a ride after its process was restarted.
  */
-class RideStore(context: Context) {
-    private val root: File = File(context.getExternalFilesDir(null) ?: context.filesDir, "rides").apply { mkdirs() }
+class RideStore(private val root: File) {
+    constructor(context: Context) : this(File(context.getExternalFilesDir(null) ?: context.filesDir, "rides"))
+
+    init {
+        root.mkdirs()
+    }
 
     val rootPath: String get() = root.absolutePath
 
@@ -68,7 +74,7 @@ class RideStore(context: Context) {
                 File(dir, SAMPLES).appendText(batch.samples.joinToString("") { toCsv(it) + "\n" })
             }
             val events = batch.jumps.map { StoredEvent(jump = it) } + batch.corners.map { StoredEvent(corner = it) } +
-                batch.shifts.map { StoredEvent(shift = it) }
+                batch.shifts.map { StoredEvent(shift = it) } + batch.markers.map { StoredEvent(marker = it) }
             if (events.isNotEmpty()) {
                 File(dir, EVENTS).appendText(events.joinToString("") { json.encodeToString(it) + "\n" })
             }
@@ -90,6 +96,13 @@ class RideStore(context: Context) {
     }
 
     fun ntfyStatus(dir: File): NtfyStatus? = readJson(File(dir, NTFY))
+
+    fun setIcuStatus(dir: File, status: NtfyStatus) {
+        runCatching { File(dir, ICU).writeText(json.encodeToString(status)) }
+    }
+
+    /** Delivery to intervals.icu (same states as ntfy), null when it was never tried. */
+    fun icuStatus(dir: File): NtfyStatus? = readJson(File(dir, ICU))
 
     /** Newest first. */
     fun rides(): List<File> = root.listFiles { f -> f.isDirectory && f.name.toLongOrNull() != null }
@@ -114,6 +127,8 @@ class RideStore(context: Context) {
 
     fun loadShifts(dir: File): List<Shift> = loadEvents(dir).mapNotNull { it.shift }
 
+    fun loadMarkers(dir: File): List<Marker> = loadEvents(dir).mapNotNull { it.marker }
+
     private fun loadEvents(dir: File): List<StoredEvent> {
         val file = File(dir, EVENTS)
         if (!file.exists()) return emptyList()
@@ -135,6 +150,7 @@ class RideStore(context: Context) {
         const val EVENTS = "events.jsonl"
         const val SUMMARY = "summary.json"
         const val NTFY = "ntfy.json"
+        const val ICU = "icu.json"
 
         val json = Json {
             ignoreUnknownKeys = true

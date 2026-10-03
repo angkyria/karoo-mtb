@@ -4,6 +4,7 @@ import io.github.angkyria.karoomtb.engine.RecordValues
 import io.github.angkyria.karoomtb.engine.SessionValues
 import io.hammerhead.karooext.models.DeveloperField
 import io.hammerhead.karooext.models.FieldValue
+import io.hammerhead.karooext.models.WriteEventMesg
 import io.hammerhead.karooext.models.WriteToRecordMesg
 import io.hammerhead.karooext.models.WriteToSessionMesg
 
@@ -70,6 +71,11 @@ object MtbFitFields {
     val COG_MAX = field("mtb_cog_max", "T", UINT8)
     val FA_REACTION = field("mtb_fa_reaction", "s")
 
+    // ---- Event message: the rider's "mark" button (user_marker event with the marker number) ----
+    val MARKER = field("mtb_marker", "n", UINT16)
+    private const val EVENT_USER_MARKER: Short = 32
+    private const val EVENT_TYPE_MARKER: Short = 3
+
     // Native FIT profile field numbers (Garmin MTB Dynamics).
     private const val RECORD_GRIT = 114
     private const val RECORD_FLOW = 115
@@ -78,6 +84,9 @@ object MtbFitFields {
     private const val SESSION_JUMP_COUNT = 183
     private const val SESSION_AVG_GRIT = 186
     private const val SESSION_AVG_FLOW = 187
+
+    /** FIT event for a marked moment (event user_marker, type marker), so FIT tools show it too. */
+    fun marker(n: Int): WriteEventMesg = WriteEventMesg(EVENT_USER_MARKER, EVENT_TYPE_MARKER, listOf(FieldValue(MARKER, n.toDouble())))
 
     fun record(v: RecordValues, native: Boolean): WriteToRecordMesg {
         val values = mutableListOf(

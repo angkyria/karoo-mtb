@@ -122,6 +122,13 @@ object SummaryBuilder {
             sensors = sensors,
             flowLagSec = config.flowLagSec,
             bike = bike,
+            lapComparison = Insights.lapComparison(lapStats),
+            brakingSpots = Insights.brakingSpots(samples, segmentStats, startWallMs),
+            descentTracks = segments.mapIndexedNotNull { i, r ->
+                if (r.type != "DESCENT") return@mapIndexedNotNull null
+                val (from, to) = Tracks.descendingCore(samples, r.start, r.end)
+                Tracks.withMargins(i + 1, samples, from, to, startWallMs)
+            },
         )
     }
 
@@ -186,6 +193,7 @@ object SummaryBuilder {
 
     private fun cornerStats(corners: List<Corner>, maxLat: Double): CornerStats {
         val withSpeed = corners.filter { it.entrySpeedMs > 0.5 }
+        val (left, right) = Insights.cornerSides(corners)
         return CornerStats(
             count = corners.size,
             left = corners.count { it.angleDeg > 0 },
@@ -196,6 +204,8 @@ object SummaryBuilder {
             maxLateralG = max(maxLat, corners.maxOfOrNull { it.maxLateralG } ?: 0.0),
             avgPeakLateralG = corners.map { it.maxLateralG }.averageOrZero(),
             sharpestRadiusM = corners.filter { it.radiusM > 0 }.minOfOrNull { it.radiusM },
+            speedKeptLeftPct = left,
+            speedKeptRightPct = right,
         )
     }
 

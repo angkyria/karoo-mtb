@@ -96,8 +96,12 @@ class SensorTest(context: Context, private val config: MtbConfig) : SensorEventL
             append(String.format(Locale.ROOT, "|a| average %.2f g (filtered min %.2f g, peak %.2f g)\n", sumG / n, minG, maxG))
             append(String.format(Locale.ROOT, "Vibration %.3f g RMS · max rotation %.0f°/s\n", rough, Math.toDegrees(maxRotation)))
             if (flights.isEmpty()) {
-                append(String.format(Locale.ROOT, "No flight detected (needs < %.2f g for %.2f s and a landing ≥ %.2f g).",
-                    config.sensitivity.takeoffG, config.sensitivity.minAirSec, config.sensitivity.minLandingG))
+                append(
+                    String.format(
+                        Locale.ROOT, "No flight detected (needs < %.2f g for %.2f s and a landing ≥ %.2f g).",
+                        config.sensitivity.takeoffG, config.sensitivity.minAirSec, config.sensitivity.minLandingG,
+                    ),
+                )
             } else {
                 append("Detected flights: " + flights.joinToString { String.format(Locale.ROOT, "%.2f s (landing %.1f g)", it.airSec, it.landingG) })
             }

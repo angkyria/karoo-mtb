@@ -26,6 +26,25 @@ data class Jump(
     val lon: Double? = null,
 )
 
+/**
+ * The rider pressed the "mark" button (a controller / remote action): what happened is worth a
+ * look, typically a jump. Carries the last flight the detector saw, if it landed shortly before.
+ */
+@Serializable
+data class Marker(
+    val n: Int,
+    val wallMs: Long,
+    val offsetSec: Double,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    /** Seconds from the landing of the last flight to the press, null without a recent flight. */
+    val flightAgoSec: Double? = null,
+    val flightAirSec: Double? = null,
+    val flightLandingG: Double? = null,
+    /** Empty = counted as a jump; otherwise why it was not. */
+    val flightVerdict: String? = null,
+)
+
 /** One detected corner (heading change of at least 35°). Positive angle = left turn. */
 @Serializable
 data class Corner(
@@ -85,6 +104,7 @@ class SecondSample(
     val descending: Boolean get() = moving && grade <= Scoring.DESCENT_GRADE
     val braking: Boolean get() = processed && moving && brake >= Scoring.BRAKING_THRESHOLD
     val pedalling: Boolean get() = (!cadence.isNaN() && cadence > 0.0) || (!power.isNaN() && power > 0.0)
+    val hasBikeData: Boolean get() = faFront >= 0 || faRear >= 0 || rearGear > 0 || !power.isNaN() || !cadence.isNaN()
 }
 
 /** One rear shift of the SRAM AXS drivetrain. */
@@ -122,12 +142,71 @@ object FaState {
 /** How well the suspension setting fits the terrain right now. */
 enum class SuspensionMatch { NONE, OK, LOCKED_ROUGH, OPEN_HARD_CLIMB }
 
-/** In-ride coaching events raised by [MtbEngine.pollAlerts]. */
-sealed class BikeAlert {
-    data object LockedOnRough : BikeAlert()
-    data class ShiftDown(val easierGears: Int) : BikeAlert()
-    data class BatteryLow(val component: String, val status: String) : BikeAlert()
+/** A GPS position (degrees). */
+@Serializable
+data class GeoPoint(val lat: Double, val lon: Double)
+
+/** A point of a ride's GPS track: position and seconds since the ride start (wall clock). */
+@Serializable
+data class TrackPoint(val lat: Double, val lon: Double, val t: Double)
+
+/**
+ * GPS track of a descent ([segment] = [SegmentStats.index], 0 live): the descending core
+ * [coreStart]..[coreEnd] (point indices) plus up to 150 m before and after, so a trail is
+ * recognised however the descent was cut.
+ */
+@Serializable
+data class SegmentTrack(val segment: Int, val points: List<TrackPoint>, val coreStart: Int = 0, val coreEnd: Int = points.lastIndex) {
+    val core: List<TrackPoint> get() = points.subList(coreStart, coreEnd + 1)
 }
+
+/** How a descent compared with earlier runs of the same trail (see the trails package). */
+@Serializable
+data class TrailRunResult(
+    /** The descent (segment name) this run was. */
+    val descent: String,
+    val trailId: Int,
+    val trailName: String,
+    /** Time between the trail's start and end points. */
+    val timeSec: Double,
+    /** 1 = fastest of [runs] (this one included). */
+    val rank: Int,
+    val runs: Int,
+    /** Best time before this run, null on a new trail. */
+    val previousBestSec: Double? = null,
+    val flowScore: Double,
+    val previousBestFlow: Double? = null,
+    val newTrail: Boolean = false,
+    val distanceM: Double = 0.0,
+    val dropM: Double = 0.0,
+) {
+    val pb: Boolean get() = previousBestSec != null && timeSec < previousBestSec
+    val flowPb: Boolean get() = previousBestFlow != null && flowScore < previousBestFlow
+}
+
+/** In-ride events raised by [MtbEngine.pollAlerts]. */
+sealed class RideAlert {
+    data object LockedOnRough : RideAlert()
+    data class ShiftDown(val easierGears: Int) : RideAlert()
+    data class BatteryLow(val component: String, val status: String) : RideAlert()
+
+    /** The bottom of a descent was reached: its stats and GPS track (every ~10 m, null without GPS). */
+    data class DescentFinished(val stats: SegmentStats, val track: SegmentTrack?) : RideAlert()
+}
+
+/** The descent in progress (live, see [DescentTracker]). */
+data class LiveDescent(
+    val number: Int,
+    val timeSec: Double,
+    val distanceM: Double,
+    val dropM: Double,
+    val avgSpeedMs: Double,
+    /** Unnecessary braking per 100 m; covers the descent up to [MtbConfig.flowLagSec] seconds ago. */
+    val flowScore: Double,
+    val brakingPct: Double,
+    val jumps: Int,
+    val maxLateralG: Double,
+)
 
 /** Values written into each FIT record message. */
 data class RecordValues(
@@ -215,6 +294,9 @@ data class LiveMetrics(
     val easierGearsLeft: Int = -1,
     val shifts: Int = 0,
     val power: Double? = null,
+    // Descents
+    val descent: LiveDescent? = null,
+    val lastDescent: SegmentStats? = null,
 )
 
 data class TickOutput(
@@ -253,6 +335,40 @@ data class CornerStats(
     val maxLateralG: Double,
     val avgPeakLateralG: Double,
     val sharpestRadiusM: Double?,
+    /** Speed kept in left / right corners (null with fewer than 5 corners on that side). */
+    val speedKeptLeftPct: Double? = null,
+    val speedKeptRightPct: Double? = null,
+)
+
+/** Laps of about the same distance compared with each other. */
+@Serializable
+data class LapComparison(
+    val comparable: Int,
+    val laps: Int,
+    val fastestLap: Int,
+    val fastestSec: Double,
+    val medianSec: Double,
+    val smoothestLap: Int,
+    val smoothestFlow: Double,
+    /** Last third of the comparable laps vs the first third, % time (+ = slower); null below 4 laps. */
+    val trendPct: Double? = null,
+)
+
+/** A stretch with unnecessary braking (where Flow was lost). */
+@Serializable
+data class BrakingSpot(
+    val offsetSec: Double,
+    /** Ride distance where the braking started. */
+    val distanceM: Double,
+    /** Unnecessary-braking metres. */
+    val flowM: Double,
+    val durationSec: Double,
+    val speedBeforeMs: Double,
+    val speedAfterMs: Double,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    /** Climb / descent it is in, e.g. "Descent 2". */
+    val segment: String? = null,
 )
 
 @Serializable
@@ -421,4 +537,12 @@ data class RideSummary(
     val sensors: SensorInfo,
     val flowLagSec: Int,
     val bike: BikeStats = BikeStats(),
+    val lapComparison: LapComparison? = null,
+    val brakingSpots: List<BrakingSpot> = emptyList(),
+    /** GPS tracks of the descents (for trail recognition). */
+    val descentTracks: List<SegmentTrack> = emptyList(),
+    /** Descents recognised as trails ridden before (filled in when the ride ends). */
+    val trailRuns: List<TrailRunResult> = emptyList(),
+    /** Moments the rider marked with the controller button. */
+    val markers: List<Marker> = emptyList(),
 )

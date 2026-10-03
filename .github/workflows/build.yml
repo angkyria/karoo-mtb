@@ -52,8 +52,26 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Kotlin unit tests and APK
-        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
+      - name: Kotlin lint (ktlint)
+        run: |
+          curl -sSfLo "$RUNNER_TEMP/ktlint.jar" https://repo1.maven.org/maven2/com/pinterest/ktlint/ktlint-cli/1.5.0/ktlint-cli-1.5.0-all.jar
+          java -jar "$RUNNER_TEMP/ktlint.jar" "app/src/**/*.kt" "**/*.kts" --relative
+
+      - name: Python lint (ruff)
+        run: |
+          pip install ruff==0.15.20
+          ruff check .
+
+      - name: Kotlin unit tests, Android lint and APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+
+      - name: Android lint report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
 
       - name: Python analyser tests
         run: |

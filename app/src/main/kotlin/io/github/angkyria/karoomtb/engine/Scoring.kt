@@ -11,7 +11,8 @@ import kotlin.math.sin
 
 /**
  * Every MTB Dynamics formula lives here so the Karoo extension, the docs and the Python
- * analyser (tools/mtb_analyze.py mirrors these constants) stay in sync.
+ * analyser (tools/mtbdyn/scoring.py mirrors these constants) stay in sync. ScoringParityTest
+ * checks both against testdata/scoring_vectors.json (tools/make_scoring_vectors.py).
  *
  * Garmin does not publish its algorithms. The definitions below follow the FIT SDK profile
  * descriptions and are calibrated to land in similar ranges:
