@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MTB Dynamics</string>
+    <string name="extension_name">MTB Dynamics</string>
+
+    <string name="dt_panel">MTB Dynamics</string>
+    <string name="dt_panel_desc">Grit, Flow, jumps and last airtime in one field</string>
+    <string name="dt_grit">Grit</string>
+    <string name="dt_grit_desc">Ride difficulty so far (kGrit): grade, turns and trail roughness</string>
+    <string name="dt_grit60">Grit 60s</string>
+    <string name="dt_grit60_desc">Current trail difficulty, 60 second average (grit per second)</string>
+    <string name="dt_grit_lap">Lap Grit</string>
+    <string name="dt_grit_lap_desc">Difficulty of the current lap (kGrit)</string>
+    <string name="dt_flow">Flow</string>
+    <string name="dt_flow_desc">Ride smoothness: unnecessary braking per 100 m, lower is better</string>
+    <string name="dt_flow60">Flow 60s</string>
+    <string name="dt_flow60_desc">Smoothness over the last 60 seconds, lower is better</string>
+    <string name="dt_flow_lap">Lap Flow</string>
+    <string name="dt_flow_lap_desc">Smoothness of the current lap, lower is better</string>
+    <string name="dt_jumps">Jumps</string>
+    <string name="dt_jumps_desc">Number of jumps this ride</string>
+    <string name="dt_jump_air">Last Airtime</string>
+    <string name="dt_jump_air_desc">Hang time of the last jump in seconds</string>
+    <string name="dt_jump_dist">Last Jump Dist</string>
+    <string name="dt_jump_dist_desc">Distance of the last jump</string>
+    <string name="dt_jump_max">Max Airtime</string>
+    <string name="dt_jump_max_desc">Longest hang time this ride in seconds</string>
+    <string name="dt_corner_g">Corner G</string>
+    <string name="dt_corner_g_desc">Current lateral acceleration in g (speed × turn rate)</string>
+    <string name="dt_corners">Corners</string>
+    <string name="dt_corners_desc">Number of corners (35° or more) this ride</string>
+    <string name="dt_rough">Roughness</string>
+    <string name="dt_rough_desc">Trail roughness, vibration RMS in g over 60 seconds</string>
+    <string name="dt_desc_brake">Descent Braking</string>
+    <string name="dt_desc_brake_desc">Share of descending time spent braking (%)</string>
+    <string name="dt_score">MTB Score</string>
+    <string name="dt_score_desc">0-100 from difficulty, smoothness and airtime</string>
+    <string name="dt_bike_panel">Bike Systems</string>
+    <string name="dt_bike_panel_desc">Flight Attendant state, rear cog, power and trail roughness</string>
+    <string name="dt_suspension">Suspension Coach</string>
+    <string name="dt_suspension_desc">Flight Attendant state, red when locked on rough ground, amber when open on a hard climb</string>
+    <string name="dt_fa_open_desc">FA Open Descent</string>
+    <string name="dt_fa_open_desc_desc">Share of descending time with the fork open (%)</string>
+    <string name="dt_easier_gears">Easier Gears Left</string>
+    <string name="dt_easier_gears_desc">Larger cogs still available on the AXS cassette</string>
+</resources>

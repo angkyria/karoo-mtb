@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/info"
+            style="@style/Hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/sensor_test"
+            style="@style/ActionButton"
+            android:text="Test sensors (5 s)" />
+
+        <TextView
+            android:id="@+id/sensor_result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp" />
+
+        <!-- Last ride -->
+        <TextView
+            style="@style/Section"
+            android:text="Last ride" />
+
+        <TextView
+            android:id="@+id/last_ride"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/card"
+            android:padding="8dp"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/resend"
+            style="@style/ActionButton"
+            android:text="Send last ride to ntfy again" />
+
+        <!-- ntfy -->
+        <TextView
+            style="@style/Section"
+            android:text="ntfy ride summary" />
+
+        <Switch
+            android:id="@+id/ntfy_enabled"
+            style="@style/Toggle"
+            android:text="Send summary when the ride ends" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Server" />
+
+        <EditText
+            android:id="@+id/ntfy_server"
+            style="@style/Input"
+            android:hint="https://ntfy.sh"
+            android:inputType="textUri" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Topic (subscribe to it in the ntfy phone app)" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/ntfy_topic"
+                style="@style/Input"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:inputType="textNoSuggestions" />
+
+            <Button
+                android:id="@+id/new_topic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="New" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/qr"
+            android:layout_width="180dp"
+            android:layout_height="180dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="6dp"
+            android:contentDescription="ntfy topic QR code" />
+
+        <TextView
+            android:id="@+id/qr_hint"
+            style="@style/Hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Access token or user:password (optional)" />
+
+        <EditText
+            android:id="@+id/ntfy_token"
+            style="@style/Input"
+            android:inputType="textPassword" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Open this link when the notification is tapped" />
+
+        <EditText
+            android:id="@+id/ntfy_click"
+            style="@style/Input"
+            android:inputType="textUri" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Priority (1 = min … 5 = urgent)" />
+
+        <Spinner
+            android:id="@+id/ntfy_priority"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Only send rides with at least this many moving minutes" />
+
+        <EditText
+            android:id="@+id/min_minutes"
+            style="@style/Input"
+            android:inputType="number" />
+
+        <Switch
+            android:id="@+id/ntfy_attach"
+            style="@style/Toggle"
+            android:text="Attach the full JSON report" />
+
+        <Button
+            android:id="@+id/test"
+            style="@style/ActionButton"
+            android:text="Send test notification" />
+
+        <TextView
+            android:id="@+id/test_result"
+            style="@style/Hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <!-- Detection -->
+        <TextView
+            style="@style/Section"
+            android:text="Detection" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Jump sensitivity" />
+
+        <Spinner
+            android:id="@+id/sensitivity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Switch
+            android:id="@+id/jump_alerts"
+            style="@style/Toggle"
+            android:text="Show an alert after each jump" />
+
+        <Switch
+            android:id="@+id/jump_beep"
+            style="@style/Toggle"
+            android:text="Beep after each jump" />
+
+        <Switch
+            android:id="@+id/mtb_only"
+            style="@style/Toggle"
+            android:text="Only in MTB / eMTB ride profiles" />
+
+        <TextView
+            style="@style/Label"
+            android:text="Trail segment split: elevation change in metres" />
+
+        <EditText
+            android:id="@+id/segment_elev"
+            style="@style/Input"
+            android:inputType="number" />
+
+        <!-- Bike systems -->
+        <TextView
+            style="@style/Section"
+            android:text="Bike systems (Flight Attendant, AXS)" />
+
+        <Switch
+            android:id="@+id/alert_suspension"
+            style="@style/Toggle"
+            android:text="Alert when the suspension stays locked on rough ground" />
+
+        <Switch
+            android:id="@+id/alert_shift"
+            style="@style/Toggle"
+            android:text="Hint to shift when grinding a steep climb with easier gears left" />
+
+        <Switch
+            android:id="@+id/alert_battery"
+            style="@style/Toggle"
+            android:text="Alert when an AXS or Flight Attendant battery is low" />
+
+        <!-- Service tracker (filled by ServiceSection.kt) -->
+        <TextView
+            style="@style/Section"
+            android:text="Service tracker" />
+
+        <TextView
+            android:id="@+id/service_summary"
+            style="@style/Hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <LinearLayout
+            android:id="@+id/service_items"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <!-- FIT -->
+        <TextView
+            style="@style/Section"
+            android:text="FIT file" />
+
+        <Switch
+            android:id="@+id/fit_native"
+            style="@style/Toggle"
+            android:text="Also write Garmin's native Grit / Flow / jump count fields" />
+
+        <Switch
+            android:id="@+id/debug_raw_imu"
+            style="@style/Toggle"
+            android:text="Debug: save raw sensor data with each ride (~3 MB/hour)" />
+
+        <TextView
+            android:id="@+id/storage"
+            style="@style/Hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/save"
+            style="@style/ActionButton"
+            android:layout_marginBottom="24dp"
+            android:text="Save" />
+    </LinearLayout>
+</ScrollView>

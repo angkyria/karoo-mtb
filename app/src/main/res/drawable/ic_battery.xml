@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="38dp"
+    android:height="38dp"
+    android:viewportWidth="38"
+    android:viewportHeight="38">
+    <!-- Battery with a low charge bar -->
+    <path
+        android:pathData="M5,12 L30,12 L30,26 L5,26 Z M30,16 L33,16 L33,22 L30,22 M9,16 L9,22"
+        android:strokeColor="#9FB3BD"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

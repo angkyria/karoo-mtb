@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="38dp"
+    android:height="38dp"
+    android:viewportWidth="38"
+    android:viewportHeight="38">
+    <!-- Cassette cog: ring with teeth and an axle -->
+    <path
+        android:pathData="M19,9 A10,10 0 1,1 18.99,9 Z M19,15 A4,4 0 1,1 18.99,15 Z M19,4 L19,9 M19,29 L19,34 M4,19 L9,19 M29,19 L34,19 M8.4,8.4 L11.9,11.9 M26.1,26.1 L29.6,29.6 M8.4,29.6 L11.9,26.1 M26.1,11.9 L29.6,8.4"
+        android:strokeColor="#9FB3BD"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

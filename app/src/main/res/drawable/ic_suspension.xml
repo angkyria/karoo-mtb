@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="38dp"
+    android:height="38dp"
+    android:viewportWidth="38"
+    android:viewportHeight="38">
+    <!-- Suspension fork: crown, two stanchions and a coil -->
+    <path
+        android:pathData="M10,6 L28,6 M13,6 L13,32 M25,6 L25,32 M13,14 L25,17 M13,18 L25,21 M13,22 L25,25"
+        android:strokeColor="#9FB3BD"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

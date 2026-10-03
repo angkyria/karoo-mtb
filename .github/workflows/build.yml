@@ -1,0 +1,84 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create releases on tags
+      packages: read    # karoo-ext from GitHub Packages
+    env:
+      # karoo-ext lives on GitHub Packages, which needs a token even for public packages.
+      GPR_USER: ${{ secrets.GPR_USER || github.actor }}
+      GPR_KEY: ${{ secrets.GPR_KEY || secrets.GITHUB_TOKEN }}
+      BUILD_NUMBER: ${{ github.run_number }}
+      BASE_URL: https://github.com/${{ github.repository }}/releases/latest/download
+      # Optional release signing (keeps the same signature across updates, see README).
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Release version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+          echo "RELEASE_NOTES=See https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Kotlin unit tests and APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
+
+      - name: Python analyser tests
+        run: |
+          pip install -r tools/requirements.txt
+          python -m unittest discover -s tools/tests -v
+
+      - name: intervals.icu script tests
+        run: node intervals-icu/test/run.mjs
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/karoo-mtb.apk
+          cp app/build/karoo/manifest.json dist/manifest.json
+          cp assets/karoo-mtb.png dist/karoo-mtb.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: karoo-mtb
+          path: dist/
+
+      - name: GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            dist/karoo-mtb.apk
+            dist/manifest.json
+            dist/karoo-mtb.png

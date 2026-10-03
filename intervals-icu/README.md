@@ -1,0 +1,150 @@
+# MTB Dynamics in intervals.icu
+
+The Karoo extension writes all MTB data into the ride's FIT file as developer fields
+(`mtb_*`). intervals.icu keeps developer fields only once you tell it which ones to read, so
+there is a one-time setup. After that every new Karoo ride shows Grit, Flow, jumps, braking etc.
+For rides uploaded before the setup, open the activity and choose **Actions → Re-analyse**.
+
+The scripts here also work for **Garmin Edge** rides: they fall back to Garmin's own MTB
+Dynamics fields (`grit`, `flow`, `total_grit`, `avg_flow`, `jump_count`, jump messages).
+
+> intervals.icu changes its UI from time to time, so the menu names below may differ slightly.
+> Codes matter: the interval fields and charts look streams up by the codes in the tables.
+
+## 1. Custom activity streams (second-by-second data)
+
+Open any activity → **Charts** (under the timeline) → **Custom Streams** → **Add Stream**.
+
+| Name | Code | Source | Units |
+|---|---|---|---|
+| MTB Grit | `mtb_grit` | record field `mtb_grit` *(or script [streams/mtb_grit.js](streams/mtb_grit.js) to include Garmin rides)* | grit |
+| MTB Flow | `mtb_flow` | script [streams/mtb_flow.js](streams/mtb_flow.js), tick **Processes fit file messages** | m |
+| MTB Braking | `mtb_brake` | script [streams/mtb_brake.js](streams/mtb_brake.js), tick **Processes fit file messages** | m/s2 |
+| MTB Roughness | `mtb_rough` | record field `mtb_rough` | g |
+| MTB Corner G | `mtb_lat_g` | record field `mtb_lat_g` | g |
+| MTB Jump Airtime | `mtb_jump_air` | record field `mtb_jump_air` | s |
+| MTB Jump Distance | `mtb_jump_dist` | record field `mtb_jump_dist` | m |
+| MTB Jump Height | `mtb_jump_height` | record field `mtb_jump_height` | m |
+
+**RockShox Flight Attendant / SRAM AXS** (the Karoo records these itself when the parts are paired):
+
+| Name | Code | Source | Units |
+|---|---|---|---|
+| FA Fork | `fa_front` | record field `front_suspension` (0 Open, 1 Pedal, 2 Lock) | |
+| FA Shock | `fa_rear` | record field `rear_suspension` | |
+| FA Effort Zone | `fa_effort` | record field `suspension_effort_zone` (0–3) | |
+| Rear Cog | `rear_cog` | script [streams/rear_cog.js](streams/rear_cog.js), tick **Processes fit file messages** | T |
+
+Power, cadence and L/R balance from the XX SL power meter are standard streams already.
+
+Why scripts for Flow and Braking: Flow needs to see the trail ahead (braking *before* a tight
+corner is good riding), so the Karoo writes `mtb_flow` / `mtb_brake` three seconds late. The
+scripts move the values back to the second they belong to (the lag is stored in the session
+field `mtb_flow_lag`).
+
+Streams with **Processes fit file messages** are computed first; keep the others below them.
+
+## 2. Custom activity fields (ride totals)
+
+**Settings → Custom Fields → Add field → Activity field.** Either read the FIT session field
+directly, or paste the script (tick **Processes fit file messages**); the scripts also read
+Garmin rides.
+
+| Name | Code | FIT session field | Script | Units |
+|---|---|---|---|---|
+| MTB Grit | `MtbGrit` | `mtb_total_grit` | [mtb_grit.js](activity-fields/mtb_grit.js) | kGrit |
+| MTB Flow | `MtbFlow` | `mtb_flow_score` | [mtb_flow.js](activity-fields/mtb_flow.js) | |
+| MTB Jumps | `MtbJumps` | `mtb_jumps` | [mtb_jumps.js](activity-fields/mtb_jumps.js) | |
+| MTB Max Airtime | `MtbMaxAir` | `mtb_max_air` | [mtb_max_air.js](activity-fields/mtb_max_air.js) | s |
+| MTB Total Airtime | `MtbTotalAir` | `mtb_total_air` | [mtb_total_air.js](activity-fields/mtb_total_air.js) | s |
+| MTB Score | `MtbScore` | `mtb_score` | [mtb_score.js](activity-fields/mtb_score.js) | |
+| MTB Descent Braking | `MtbDescentBraking` | `mtb_descent_braking` | [mtb_descent_braking.js](activity-fields/mtb_descent_braking.js) | % |
+| MTB Corners | `MtbCorners` | `mtb_corners` | [mtb_corners.js](activity-fields/mtb_corners.js) | |
+| MTB Max Corner G | `MtbMaxCornerG` | `mtb_max_lat_g` | [mtb_max_corner_g.js](activity-fields/mtb_max_corner_g.js) | g |
+
+**Flight Attendant / AXS / power meter** (the session fields are written by MTB Dynamics 0.2+
+when the parts are paired; the scripts also compute them from older rides' records):
+
+| Name | Code | FIT session field | Script | Units |
+|---|---|---|---|---|
+| FA Open on descents | `MtbFaOpenDesc` | `mtb_fa_open_desc` | [mtb_fa_open_desc.js](activity-fields/mtb_fa_open_desc.js) | % |
+| FA locked on rough ground | `MtbFaLockRough` | `mtb_fa_lock_rough` | [mtb_fa_lock_rough.js](activity-fields/mtb_fa_lock_rough.js) | s |
+| Shifts per km | `MtbShiftsKm` | `mtb_shifts_km` | [mtb_shifts_km.js](activity-fields/mtb_shifts_km.js) | /km |
+| Climbing power | `MtbClimbPower` | `mtb_climb_power` | [mtb_climb_power.js](activity-fields/mtb_climb_power.js) | W |
+| Pedalling on descents | `MtbDescPedal` | `mtb_desc_pedal` | [mtb_desc_pedal.js](activity-fields/mtb_desc_pedal.js) | % |
+
+Also in the session: `mtb_fa_open_climb` (s open while pushing ≥ 200 W uphill), `mtb_fa_changes`,
+`mtb_fa_reaction` (s until the fork opens on a descent, median), `mtb_shifts`, `mtb_climb_wkg`
+(W/kg, with the weight from the Karoo profile), `mtb_cog_max` (largest cog used, T).
+
+More session fields you can add the same way: `mtb_avg_grit` (grit/s), `mtb_total_flow` (m),
+`mtb_max_jump_dist` (m), `mtb_max_jump_height` (m), `mtb_difficulty`, `mtb_smoothness`,
+`mtb_air_score`, `mtb_corner_speed_kept` (%), `mtb_descent_time` (s), `mtb_descent_speed` (m/s),
+`mtb_descent_flow`, `mtb_avg_rough` (g).
+
+Custom activity fields can be shown in the activity list and plotted on the fitness page
+(e.g. Flow over time to see whether your descending gets smoother).
+
+## 3. Interval fields (trail segments, laps, any selection)
+
+**Settings → Custom Fields → Add field → Interval field**, paste a script from
+[interval-fields/](interval-fields/):
+
+| Name | Code | Script | Units |
+|---|---|---|---|
+| Grit | `IntMtbGrit` | [interval_grit.js](interval-fields/interval_grit.js) | kGrit |
+| Flow | `IntMtbFlow` | [interval_flow.js](interval-fields/interval_flow.js) | |
+| Jumps | `IntMtbJumps` | [interval_jumps.js](interval-fields/interval_jumps.js) | |
+| Max airtime | `IntMtbMaxAir` | [interval_max_air.js](interval-fields/interval_max_air.js) | s |
+| Braking | `IntMtbBraking` | [interval_braking.js](interval-fields/interval_braking.js) | % |
+| Roughness | `IntMtbRough` | [interval_roughness.js](interval-fields/interval_roughness.js) | g |
+
+With the Flight Attendant / AXS streams above:
+
+| Name | Code | Script | Units |
+|---|---|---|---|
+| FA Open | `IntFaOpen` | [interval_fa_open.js](interval-fields/interval_fa_open.js) | % |
+| FA Lock | `IntFaLock` | [interval_fa_lock.js](interval-fields/interval_fa_lock.js) | % |
+| Shifts | `IntShifts` | [interval_shifts.js](interval-fields/interval_shifts.js) | |
+| Main cog | `IntCog` | [interval_cog.js](interval-fields/interval_cog.js) | T |
+
+Karoo laps become intervals automatically. Drag across the activity chart to select a trail
+and its Grit / Flow / jumps appear in the selection summary, handy for comparing your runs
+down the same descent.
+
+## 4. Activity charts
+
+Activity → **Charts** → **+** → custom chart, paste a script from [charts/](charts/):
+
+* [mtb_dynamics.js](charts/mtb_dynamics.js): altitude with Grit 60 s, Flow 60 s and jump markers
+* [mtb_jumps.js](charts/mtb_jumps.js): one bar per jump (airtime, colour = height, hover = distance / speed)
+* [mtb_segments.js](charts/mtb_segments.js): automatic climbs / descents / flats with Grit, Flow, braking and jumps per segment
+* [mtb_bike.js](charts/mtb_bike.js): Flight Attendant state (Open / Pedal / Lock band) with the rear cog on top, and minutes per cog on climbs / flats / descents (needs the `fa_front` and `rear_cog` streams)
+
+## 5. Test without riding
+
+```sh
+pip install -r ../tools/requirements.txt
+python3 ../tools/make_sample_fit.py sample-karoo.fit     # synthetic 40 min ride: 5 jumps, Flight Attendant, AXS, power
+```
+
+Upload `sample-karoo.fit` to intervals.icu (Upload activity) and check the streams, fields and
+charts. Delete the activity afterwards.
+
+## 6. From the command line
+
+`tools/mtb_analyze.py` can pull a ride from intervals.icu, analyse it, write a summary into
+the activity description and set custom fields through the API:
+
+```sh
+export INTERVALS_API_KEY=...   # intervals.icu → Settings → Developer Settings
+python3 tools/mtb_analyze.py --icu latest --html report.html --icu-update \
+    --icu-fields "MtbGrit=grit.total_k,MtbFlow=flow.score,MtbJumps=jumps.count"
+
+# Across the rides of the last 90 days: suspension / drivetrain hours, service status, battery trend
+python3 tools/mtb_analyze.py --icu-history 90 --html history.html
+```
+
+## Tests
+
+`node test/run.mjs` runs every script here against a mocked `icu` object.

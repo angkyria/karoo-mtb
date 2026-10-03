@@ -1,0 +1,20 @@
+[versions]
+agp = "8.7.3"
+kotlin = "2.0.21"
+karooExt = "1.1.9"
+coroutines = "1.8.1"
+serialization = "1.7.3"
+zxing = "3.5.3"
+junit = "4.13.2"
+
+[libraries]
+karoo-ext = { group = "io.hammerhead", name = "karoo-ext", version.ref = "karooExt" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

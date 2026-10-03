@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MTB Dynamics for Karoo</title>
+<meta name="description" content="Garmin-style MTB Dynamics for Hammerhead Karoo 2 and Karoo 3: Grit, Flow, jumps, cornering, descents and trail segments, plus RockShox Flight Attendant and SRAM AXS analytics. Testing builds.">
+<meta property="og:title" content="MTB Dynamics for Karoo">
+<meta property="og:description" content="Grit, Flow, jumps and trail analytics for Hammerhead Karoo, with Flight Attendant and AXS insights. Open source, in testing.">
+<meta property="og:image" content="https://angkyria.github.io/karoo-mtb/img/report.jpg">
+<meta property="og:type" content="website">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<style>
+:root {
+  --bg: #ffffff; --bg2: #f4f6f7; --card: #ffffff; --fg: #17191a; --muted: #5d676c; --line: #e2e7ea;
+  --accent: #ff6d00; --accent-ink: #ffffff; --accent-soft: #fff1e6; --warn: #8a4b00; --warn-bg: #fff6e0; --warn-line: #f3d18a;
+  --green: #2e7d32; --red: #c62828; --amber: #f9a825; --blue: #1565c0;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111416; --bg2: #171b1e; --card: #1b2023; --fg: #e9ecee; --muted: #9aa8af; --line: #2a3237;
+    --accent-soft: #2b1c10; --warn: #f3c46b; --warn-bg: #2a2212; --warn-line: #5c4a1e;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111416; --bg2: #171b1e; --card: #1b2023; --fg: #e9ecee; --muted: #9aa8af; --line: #2a3237;
+  --accent-soft: #2b1c10; --warn: #f3c46b; --warn-bg: #2a2212; --warn-line: #5c4a1e;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88em; }
+code { background: var(--bg2); border: 1px solid var(--line); border-radius: 5px; padding: .05em .35em; }
+pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; margin: 12px 0; }
+pre code { background: none; border: 0; padding: 0; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+/* Grid items default to min-width:auto, so a long code line would widen the whole page on phones. */
+.hero-grid > *, .split > *, .stack > *, .cols2 > *, .grid > *, ol.steps > li, .banner > * { min-width: 0; }
+pre { max-width: 100%; }
+img { max-width: 100%; }
+section { padding: 56px 0; border-top: 1px solid var(--line); }
+h1, h2, h3 { line-height: 1.2; margin: 0; }
+h2 { font-size: clamp(24px, 3.2vw, 32px); letter-spacing: -.01em; margin-bottom: 8px; }
+h3 { font-size: 17px; margin-bottom: 6px; }
+.lead { color: var(--muted); font-size: 18px; max-width: 760px; margin: 0 0 28px; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+
+/* nav */
+nav { position: sticky; top: 0; z-index: 10; background: var(--bg); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+nav .wrap { display: flex; align-items: center; gap: 18px; height: 56px; }
+nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--fg); white-space: nowrap; }
+nav .brand img { width: 28px; height: 28px; border-radius: 7px; }
+nav .brand { flex-shrink: 0; }
+nav .links { display: flex; gap: 16px; margin-left: auto; min-width: 0; font-size: 15px; overflow-x: auto; scrollbar-width: none; }
+nav .links a { color: var(--muted); white-space: nowrap; }
+nav .links a:hover { color: var(--fg); text-decoration: none; }
+@media (max-width: 720px) { nav .links a.opt { display: none; } }
+
+/* hero */
+.hero { padding: 64px 0 48px; border: 0; }
+.hero-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 40px; align-items: center; }
+@media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
+.pill { display: inline-flex; align-items: center; gap: 8px; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-line); border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 600; }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+.hero h1 { font-size: clamp(36px, 5.6vw, 58px); letter-spacing: -.025em; margin: 18px 0 14px; }
+.hero h1 span { color: var(--accent); }
+.hero p { font-size: 19px; color: var(--muted); margin: 0 0 26px; max-width: 600px; }
+.buttons { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; border: 1px solid var(--line); color: var(--fg); background: var(--card); }
+.btn:hover { text-decoration: none; border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.05); }
+.btn svg { width: 18px; height: 18px; }
+
+/* Karoo mock */
+.karoo { width: 100%; max-width: 330px; margin: 0 auto; background: #0d0f10; border-radius: 34px; padding: 18px 14px 26px; box-shadow: 0 20px 50px rgba(0,0,0,.28); }
+.screen { background: #f2f3f3; border-radius: 12px; overflow: hidden; color: #111; font-family: Roboto, system-ui, sans-serif; }
+.statusbar { background: #000; color: #fff; font-size: 11px; display: flex; justify-content: space-between; padding: 4px 10px; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: #c9cdcf; }
+.tile { background: #fff; padding: 8px 10px 9px; min-height: 66px; }
+.tile.wide { grid-column: span 2; }
+.tile .k { font-size: 10px; letter-spacing: .06em; color: #555; text-transform: uppercase; }
+.tile .v { font-size: 27px; font-weight: 700; line-height: 1.15; }
+.tile .v small { font-size: 14px; font-weight: 600; color: #444; }
+.quad { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+.quad .v { font-size: 22px; }
+.coach { background: var(--green); color: #fff; text-align: center; padding: 10px 6px 12px; }
+.coach .v { font-size: 30px; letter-spacing: .02em; }
+.coach .h { font-size: 12px; opacity: .92; }
+.alert { margin: 8px; background: var(--accent); color: #fff; border-radius: 8px; padding: 9px 12px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+.alert b { display: block; font-size: 15px; }
+.caption { text-align: center; color: var(--muted); font-size: 13px; margin-top: 12px; }
+
+/* testing banner */
+.banner { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 14px; padding: 20px 22px; display: grid; grid-template-columns: auto 1fr; gap: 16px; }
+.banner .icon { font-size: 26px; line-height: 1; }
+.banner h3 { color: var(--warn); }
+.banner p { margin: 6px 0 0; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px; }
+@media (max-width: 700px) { .cols2 { grid-template-columns: 1fr; } .banner { grid-template-columns: 1fr; } }
+ul.check, ul.todo { list-style: none; padding: 0; margin: 6px 0 0; }
+ul.check li, ul.todo li { padding-left: 24px; position: relative; margin: 5px 0; font-size: 15px; }
+ul.check li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+ul.todo li::before { content: "○"; position: absolute; left: 0; color: var(--warn); font-weight: 700; }
+
+/* features */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
+.card .ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 10px; font-size: 20px; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); margin-left: 6px; vertical-align: 2px; }
+
+/* shots */
+.shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; max-width: 340px; margin: 0 auto; } }
+.shot { margin: 0; }
+.shot img { width: 100%; height: auto; border-radius: 18px; border: 8px solid #0d0f10; box-shadow: var(--shadow); display: block; }
+.shot figcaption { color: var(--muted); font-size: 14px; margin-top: 10px; text-align: center; }
+
+/* ride report */
+.split { display: grid; grid-template-columns: .9fr 1.1fr; gap: 32px; align-items: start; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+.phone { background: var(--bg2); border: 1px solid var(--line); border-radius: 20px; padding: 14px; }
+.notif { background: var(--card); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); font-size: 14px; line-height: 1.5; }
+.notif .app { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; margin-bottom: 6px; }
+.notif .app img { width: 18px; height: 18px; border-radius: 5px; }
+.notif .title { font-weight: 700; margin-bottom: 6px; }
+.notif p { margin: 0 0 8px; }
+.notif p:last-child { margin: 0; color: var(--muted); }
+.preview { display: block; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); background: #fff; }
+.preview img { width: 100%; height: auto; display: block; }
+.preview:hover { text-decoration: none; border-color: var(--accent); }
+.preview .bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--card); color: var(--fg); font-weight: 600; font-size: 15px; border-top: 1px solid var(--line); }
+.preview .bar span { color: var(--accent); }
+.stack { display: grid; gap: 18px; }
+
+/* tables */
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.table-wrap table td:first-child { font-weight: 600; white-space: nowrap; }
+
+/* steps */
+ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+ol.steps > li { counter-increment: s; position: relative; padding: 16px 18px 16px 62px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 18px; top: 16px; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
+ol.steps h3 { margin-bottom: 4px; }
+ol.steps p { margin: 4px 0 0; color: var(--muted); }
+
+footer { border-top: 1px solid var(--line); padding: 34px 0 48px; color: var(--muted); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; }
+.theme-toggle { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 5px 9px; cursor: pointer; font: inherit; font-size: 13px; }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="img/icon.svg" alt="">MTB Dynamics</a>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a class="opt" href="#karoo">On the Karoo</a>
+      <a href="#report">Reports</a>
+      <a class="opt" href="#bike">Bike systems</a>
+      <a href="#install">Install</a>
+      <a href="#testing">Testing</a>
+      <a href="https://github.com/angkyria/karoo-mtb">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="pill">In testing · v0.2.0 debug builds</span>
+      <h1>MTB Dynamics for <span>Karoo</span></h1>
+      <p>Garmin-style trail analytics for the Hammerhead Karoo 2 and Karoo 3: Grit, Flow, jumps,
+        cornering and descents, with RockShox Flight Attendant and SRAM AXS insights. When the ride
+        ends, a summary arrives on your phone, and everything goes into the FIT file for intervals.icu.</p>
+      <div class="buttons">
+        <a class="btn primary" href="https://github.com/angkyria/karoo-mtb">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Source on GitHub</a>
+        <a class="btn" href="demo/report.html">Demo ride report</a>
+        <a class="btn" href="#testing">Help test it</a>
+      </div>
+    </div>
+    <div>
+      <div class="karoo" role="img" aria-label="Illustration of MTB Dynamics data fields on a Karoo screen">
+        <div class="screen">
+          <div class="statusbar"><span>09:41</span><span>GPS · 82%</span></div>
+          <div class="tiles">
+            <div class="tile wide">
+              <div class="quad">
+                <div><div class="k">Grit</div><div class="v">8.7</div></div>
+                <div><div class="k">Flow</div><div class="v">0.3</div></div>
+                <div><div class="k">Jumps</div><div class="v">5</div></div>
+                <div><div class="k">Air</div><div class="v">0.95 <small>s</small></div></div>
+              </div>
+            </div>
+            <div class="tile wide coach">
+              <div class="v">OPEN</div>
+              <div class="h">1.21 g · zone 0</div>
+            </div>
+            <div class="tile"><div class="k">Corner G</div><div class="v">0.45</div></div>
+            <div class="tile"><div class="k">Easier gears left</div><div class="v">3</div></div>
+            <div class="tile"><div class="k">Power</div><div class="v">245 <small>W</small></div></div>
+            <div class="tile"><div class="k">Cog</div><div class="v">28 <small>T</small></div></div>
+          </div>
+          <div class="alert"><b>Jump! 0.83 s airtime</b>6.2 m · 27.0 km/h · 3.0 g landing</div>
+        </div>
+      </div>
+      <div class="caption">Illustration: MTB Dynamics, Suspension Coach and jump alert (values from a synthetic ride)</div>
+    </div>
+  </div>
+</header>
+
+<section id="status" style="border-top:0; padding-top:0">
+  <div class="wrap">
+    <div class="banner">
+      <div class="icon" aria-hidden="true">🧪</div>
+      <div>
+        <h3>This is a testing / debug project</h3>
+        <p>It runs on the developer's Karoo 2, and real rides were used to calibrate it. But it is young:
+          numbers can still change between versions, and there is no signed release yet. Expect rough edges. Bug reports with logs are very welcome.</p>
+        <div class="cols2">
+          <div>
+            <strong>Verified on a Karoo 2</strong>
+            <ul class="check">
+              <li>Extension, data fields and settings screen</li>
+              <li>Sensors at ~98 Hz, FIT developer + native fields</li>
+              <li>ntfy summary at ride end</li>
+              <li>Grit, Flow and lateral g recalibrated on a 2 h trail ride</li>
+              <li>Flight Attendant states decoded from real rides</li>
+            </ul>
+          </div>
+          <div>
+            <strong>Still being tested</strong>
+            <ul class="todo">
+              <li>Jump detection thresholds on real jumps</li>
+              <li>Bike systems live on a ride (v0.2)</li>
+              <li>Service tracker over many rides</li>
+              <li>Karoo 3</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <h2>What it measures</h2>
+    <p class="lead">The definitions follow Garmin's FIT profile and are tuned to similar ranges. These are not Garmin's algorithms, so the numbers are not identical to an Edge's.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">⛰️</div><h3>Grit</h3><p>Trail difficulty from gradient, turns and trail roughness. Shown for the ride, the last 60 s and the lap.</p></div>
+      <div class="card"><div class="ic">🌊</div><h3>Flow</h3><p>Smoothness: braking the trail did not ask for, in metres per 100 m. Lower is smoother.</p></div>
+      <div class="card"><div class="ic">🪂</div><h3>Jumps</h3><p>Take-off, airtime, landing: count, distance, height, landing g, rotations, and records per ride.</p></div>
+      <div class="card"><div class="ic">↪️</div><h3>Cornering</h3><p>Corners from the gyroscope: entry and apex speed, lateral g, radius, speed kept.</p></div>
+      <div class="card"><div class="ic">⬇️</div><h3>Descending</h3><p>Time, drop, speed, braking share, and Flow and Grit on descents.</p></div>
+      <div class="card"><div class="ic">🏅</div><h3>MTB score</h3><p>0–100 from difficulty, smoothness and airtime.</p></div>
+      <div class="card"><div class="ic">🗺️</div><h3>Trail segments</h3><p>The ride split into climbs, descents and flats, plus your laps, with every metric per segment.</p></div>
+      <div class="card"><div class="ic">🔩</div><h3>Bike systems <span class="tag">new</span></h3><p>Flight Attendant, AXS shifting and the power meter, joined with the terrain they were used on.</p></div>
+      <div class="card"><div class="ic">🛠️</div><h3>Service tracker <span class="tag">new</span></h3><p>Fork and shock hours, chain km, cog usage and battery history, with reminders when service is due.</p></div>
+      <div class="card"><div class="ic">📲</div><h3>Ride summary on your phone</h3><p>Sent over <a href="https://ntfy.sh">ntfy</a> when the ride ends, through Wi-Fi, LTE or the companion app.</p></div>
+      <div class="card"><div class="ic">📈</div><h3>FIT + intervals.icu</h3><p>All values go into the FIT file. Copy-paste streams, fields and charts are included for intervals.icu.</p></div>
+      <div class="card"><div class="ic">🐍</div><h3>Analysis tool</h3><p>A Python script for HTML reports with maps and charts, CSV/JSON export, multi-ride history and intervals.icu sync.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="karoo">
+  <div class="wrap">
+    <h2>On the Karoo</h2>
+    <p class="lead">Twenty data fields, three of them graphical. Alerts after each jump, and when the suspension stays locked on rough ground. A settings screen with a sensor test.</p>
+    <div class="shots">
+      <figure class="shot"><img src="img/karoo-sensors.png" alt="Settings screen with the sensor test result on a Karoo 2" loading="lazy" width="480" height="800"><figcaption>Sensor test: the accelerometer and gyroscope at 98 Hz</figcaption></figure>
+      <figure class="shot"><img src="img/karoo-alerts.png" alt="Bike-system alert switches and service tracker introduction" loading="lazy" width="480" height="800"><figcaption>Bike alerts and the service tracker</figcaption></figure>
+      <figure class="shot"><img src="img/karoo-service.png" alt="Service items with hours used, interval and a Serviced button" loading="lazy" width="480" height="800"><figcaption>Service items: usage, interval, "Serviced"</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="report">
+  <div class="wrap">
+    <h2>After the ride</h2>
+    <p class="lead">A summary arrives on your phone. For a deeper look, the analysis tool turns any Karoo or Garmin FIT file into an interactive report. Both demos below come from synthetic rides.</p>
+    <div class="split">
+      <div class="phone">
+        <div class="notif">
+          <div class="app"><img src="img/icon.svg" alt="">ntfy · now</div>
+          <div class="title">MTB Dynamics · Trail · Sun 27 Sep 09:30</div>
+          <p><strong>🚵 MTB score 70</strong> · difficulty 61 · smoothness 94 · air 37</p>
+          <p>⛰️ <strong>Grit 10.0 kGrit</strong> · avg 5.9/s · peak 60 s 10.6<br>
+            🌊 <strong>Flow 0.4</strong> (lower = smoother) · descents 0.8<br>
+            🪂 <strong>4 jumps</strong> · 2.8 s total airtime<br>
+            &nbsp;&nbsp;• Longest: <strong>0.83 s</strong> · 6.2 m · 27.0 km/h<br>
+            ↪️ <strong>30 corners</strong> · max 0.79 g · speed kept 100%<br>
+            ⬇️ <strong>Descents 10:00</strong> · 482 m ↓ · braking 21%</p>
+          <p>🔩 <strong>Flight Attendant</strong> descents 93% open · climbs 100% lock · opens 22 s into descents<br>
+            ⚙️ <strong>2 shifts</strong> (0.7/km) · cogs 18–32T · climbs 32T<br>
+            💪 <strong>Power</strong> climbs 230 W (3.1 W/kg) · L/R 47/53<br>
+            🔋 FA fork low ⚠️ · AXS derailleur good</p>
+          <p>🛠️ <strong>Fork lower-leg service due</strong> · 50.3 h since the last one</p>
+          <p>⏱ 28:00 · 📏 8.1 km · ↗ 393 m · ⚡ 17.4 km/h avg</p>
+        </div>
+        <div class="caption">Example message (synthetic ride; the bike and service lines appear when those parts are paired)</div>
+      </div>
+      <div class="stack">
+        <a class="preview" href="demo/report.html">
+          <img src="img/report.jpg" alt="Ride report: score cards, map coloured by Grit, altitude profile with jumps" loading="lazy" width="1280" height="1180">
+          <div class="bar">Ride report: map, profile, Grit / Flow, braking, jumps, segments <span>Open →</span></div>
+        </a>
+        <a class="preview" href="demo/history.html">
+          <img src="img/history.jpg" alt="History report: service cards and cumulative suspension hours" loading="lazy" width="1100" height="700">
+          <div class="bar">History across rides: service hours, batteries <span>Open →</span></div>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="bike">
+  <div class="wrap">
+    <h2>Bike systems: Flight Attendant, AXS, power</h2>
+    <p class="lead">Pair the parts with the Karoo as usual; nothing else to set up. Every second the extension records power, cadence, balance, fork and shock state, effort zone and gear, and connects them to the trail.</p>
+    <div class="split">
+      <div class="table-wrap">
+        <table>
+          <tr><th>Metric</th><th>What it tells you</th></tr>
+          <tr><td>FA shares</td><td>Open / Pedal / Lock % on climbs, descents and flats</td></tr>
+          <tr><td>Locked on rough</td><td>Seconds in Lock at ≥ 0.9 g vibration: too firm a setting</td></tr>
+          <tr><td>Open on hard climbs</td><td>Open while pushing ≥ 200 W uphill: energy lost to bobbing</td></tr>
+          <tr><td>Reaction</td><td>Seconds from the start of a descent until the fork opens</td></tr>
+          <tr><td>Shifts</td><td>Per km, under load (≥ 250 W), before vs. after a climb starts</td></tr>
+          <tr><td>Cog usage</td><td>Minutes per cog and terrain, cogs never used</td></tr>
+          <tr><td>Steep climbing</td><td>Cadence, torque, time under 60 rpm on ≥ 6 %</td></tr>
+          <tr><td>Power by terrain</td><td>W and W/kg, pedalling on descents, best 5 min, L/R</td></tr>
+        </table>
+      </div>
+      <a class="preview" href="demo/report.html">
+        <img src="img/bike.jpg" alt="Suspension & gears chart: Flight Attendant state band with the rear cog, cog minutes per terrain, segment table with power and FA shares" loading="lazy" width="1280" height="1000">
+        <div class="bar">Suspension &amp; gears in the ride report <span>Open →</span></div>
+      </a>
+    </div>
+    <p class="muted small" style="margin-top:18px">Tested with a RockShox SID / SIDLuxe Ultimate Flight Attendant, SRAM XX SL Eagle Transmission and the XX SL power meter. It uses the Karoo's generic data types, so other Flight Attendant, AXS and power-meter setups should work. The Reverb AXS dropper is not exposed to extensions by the Karoo.</p>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Install a test build</h2>
+    <p class="lead">There is no signed release yet. Build the APK yourself, or download the <code>karoo-mtb</code> artifact from the latest successful <a href="https://github.com/angkyria/karoo-mtb/actions">GitHub Actions run</a> (needs a GitHub login). Then install it over USB.</p>
+    <ol class="steps">
+      <li><h3>Build or download the APK</h3>
+        <pre><code>export GPR_USER=&lt;github user&gt; GPR_KEY=$(gh auth token)   # karoo-ext is on GitHub Packages
+./gradlew :app:assembleDebug                             # app/build/outputs/apk/debug/app-debug.apk</code></pre>
+        <p>Needs JDK 17 and the Android SDK. The token needs <code>read:packages</code>.</p></li>
+      <li><h3>Install over USB</h3>
+        <pre><code>adb install -r app-debug.apk</code></pre>
+        <p>Builds signed with different keys don't install over each other. Pull your ride folder first, then uninstall the old build.</p></li>
+      <li><h3>Set up ntfy</h3>
+        <p>Open <strong>MTB Dynamics</strong> from the app drawer. Scan the QR code with the <a href="https://ntfy.sh">ntfy</a> app, then press <strong>Send test notification</strong>.</p></li>
+      <li><h3>Add data fields and ride</h3>
+        <p>Profiles → page → add field → MTB Dynamics. The extension records every ride, even with no field on screen.</p></li>
+    </ol>
+    <p class="muted small" style="margin-top:16px">Full documentation: <a href="https://github.com/angkyria/karoo-mtb#readme">README</a> · <a href="https://github.com/angkyria/karoo-mtb/blob/main/intervals-icu/README.md">intervals.icu setup</a> · <a href="https://github.com/angkyria/karoo-mtb/tree/main/tools">analysis tool</a></p>
+  </div>
+</section>
+
+<section id="testing">
+  <div class="wrap">
+    <h2>Help test it</h2>
+    <p class="lead">The most useful bug report includes the extension log and, if you're willing, the ride folder.</p>
+    <div class="split">
+      <div>
+        <pre><code># what the extension logged
+adb logcat -s MtbExtension MtbRide MtbImu MtbHttp MtbNotifier
+
+# ride data: per-second CSV, jumps, corners, shifts, summary
+adb pull /sdcard/Android/data/io.github.angkyria.karoomtb/files/rides
+adb pull /sdcard/Android/data/io.github.angkyria.karoomtb/files/service.json
+
+# analyse a ride folder, replay the raw sensor log
+python3 tools/mtb_analyze.py --karoo-dir rides/&lt;ride&gt; --html report.html --imu</code></pre>
+      </div>
+      <div class="stack">
+        <div class="card"><h3>Tuning jumps</h3><p>Turn on <em>Debug: save raw sensor data</em> in the settings, ride a few known jumps and note their times. The <code>--imu</code> replay shows what each sensitivity would have detected.</p></div>
+        <div class="card"><h3>Privacy</h3><p>Ride folders and FIT files contain your GPS track. Share them privately, not in a public issue. The extension itself only sends data to your ntfy server; FIT files go wherever your Karoo uploads them.</p></div>
+        <a class="btn primary" href="https://github.com/angkyria/karoo-mtb/issues/new/choose" style="justify-self:start">Report a bug</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>MTB Dynamics for Karoo · built on Hammerhead's <a href="https://github.com/hammerheadnav/karoo-ext">karoo-ext</a> SDK<br>
+      Not affiliated with Garmin, Hammerhead or SRAM. "Grit", "Flow" and "MTB Dynamics" describe Garmin's features this project is modelled on.</div>
+    <div><a href="https://github.com/angkyria/karoo-mtb">GitHub</a> · <a href="https://github.com/angkyria/karoo-mtb/issues">Issues</a> · <button class="theme-toggle" id="theme" type="button">Toggle theme</button></div>
+  </div>
+</footer>
+<script>
+  (function () {
+    var root = document.documentElement, key = 'karoo-mtb-theme';
+    try { var saved = localStorage.getItem(key); if (saved) root.setAttribute('data-theme', saved); } catch (e) {}
+    document.getElementById('theme').addEventListener('click', function () {
+      var dark = root.getAttribute('data-theme') ? root.getAttribute('data-theme') === 'dark'
+        : matchMedia('(prefers-color-scheme: dark)').matches;
+      var next = dark ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem(key, next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

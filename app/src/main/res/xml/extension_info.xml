@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- typeIds must match MtbDataTypes.kt -->
+<ExtensionInfo
+    displayName="@string/extension_name"
+    fitFile="true"
+    icon="@drawable/ic_mtb"
+    id="karoo-mtb"
+    scansDevices="false">
+    <DataType
+        description="@string/dt_panel_desc"
+        displayName="@string/dt_panel"
+        graphical="true"
+        icon="@drawable/ic_mtb"
+        typeId="panel" />
+    <DataType
+        description="@string/dt_grit_desc"
+        displayName="@string/dt_grit"
+        graphical="false"
+        icon="@drawable/ic_grit"
+        typeId="grit" />
+    <DataType
+        description="@string/dt_grit60_desc"
+        displayName="@string/dt_grit60"
+        graphical="false"
+        icon="@drawable/ic_grit"
+        typeId="grit-60s" />
+    <DataType
+        description="@string/dt_grit_lap_desc"
+        displayName="@string/dt_grit_lap"
+        graphical="false"
+        icon="@drawable/ic_grit"
+        typeId="grit-lap" />
+    <DataType
+        description="@string/dt_flow_desc"
+        displayName="@string/dt_flow"
+        graphical="false"
+        icon="@drawable/ic_flow"
+        typeId="flow" />
+    <DataType
+        description="@string/dt_flow60_desc"
+        displayName="@string/dt_flow60"
+        graphical="false"
+        icon="@drawable/ic_flow"
+        typeId="flow-60s" />
+    <DataType
+        description="@string/dt_flow_lap_desc"
+        displayName="@string/dt_flow_lap"
+        graphical="false"
+        icon="@drawable/ic_flow"
+        typeId="flow-lap" />
+    <DataType
+        description="@string/dt_jumps_desc"
+        displayName="@string/dt_jumps"
+        graphical="false"
+        icon="@drawable/ic_jump"
+        typeId="jumps" />
+    <DataType
+        description="@string/dt_jump_air_desc"
+        displayName="@string/dt_jump_air"
+        graphical="false"
+        icon="@drawable/ic_air"
+        typeId="jump-air" />
+    <DataType
+        description="@string/dt_jump_dist_desc"
+        displayName="@string/dt_jump_dist"
+        graphical="false"
+        icon="@drawable/ic_jump"
+        typeId="jump-dist" />
+    <DataType
+        description="@string/dt_jump_max_desc"
+        displayName="@string/dt_jump_max"
+        graphical="false"
+        icon="@drawable/ic_air"
+        typeId="jump-max-air" />
+    <DataType
+        description="@string/dt_corner_g_desc"
+        displayName="@string/dt_corner_g"
+        graphical="false"
+        icon="@drawable/ic_corner"
+        typeId="corner-g" />
+    <DataType
+        description="@string/dt_corners_desc"
+        displayName="@string/dt_corners"
+        graphical="false"
+        icon="@drawable/ic_corner"
+        typeId="corners" />
+    <DataType
+        description="@string/dt_rough_desc"
+        displayName="@string/dt_rough"
+        graphical="false"
+        icon="@drawable/ic_rough"
+        typeId="roughness" />
+    <DataType
+        description="@string/dt_desc_brake_desc"
+        displayName="@string/dt_desc_brake"
+        graphical="false"
+        icon="@drawable/ic_descent"
+        typeId="descent-braking" />
+    <DataType
+        description="@string/dt_score_desc"
+        displayName="@string/dt_score"
+        graphical="false"
+        icon="@drawable/ic_score"
+        typeId="mtb-score" />
+    <!-- Bike systems: RockShox Flight Attendant, SRAM AXS, power meter -->
+    <DataType
+        description="@string/dt_bike_panel_desc"
+        displayName="@string/dt_bike_panel"
+        graphical="true"
+        icon="@drawable/ic_suspension"
+        typeId="bike-panel" />
+    <DataType
+        description="@string/dt_suspension_desc"
+        displayName="@string/dt_suspension"
+        graphical="true"
+        icon="@drawable/ic_suspension"
+        typeId="suspension" />
+    <DataType
+        description="@string/dt_fa_open_desc_desc"
+        displayName="@string/dt_fa_open_desc"
+        graphical="false"
+        icon="@drawable/ic_suspension"
+        typeId="fa-open-desc" />
+    <DataType
+        description="@string/dt_easier_gears_desc"
+        displayName="@string/dt_easier_gears"
+        graphical="false"
+        icon="@drawable/ic_gear"
+        typeId="easier-gears" />
+</ExtensionInfo>
