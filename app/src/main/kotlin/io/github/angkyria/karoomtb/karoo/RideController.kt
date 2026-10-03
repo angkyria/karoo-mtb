@@ -415,8 +415,9 @@ class RideController(
                     ),
                 )
             }
-            is RideAlert.DescentFinished -> if (settings.descentAlerts) {
+            is RideAlert.DescentFinished -> if (settings.descentAlerts) scope.launch {
                 // A trail ridden before: time between its start and end points, rank and PB.
+                // Matched off the tick loop: the library can hold hundreds of trails.
                 val trail = runCatching { MtbRuntime.trails.compare(alert.stats, alert.track) }.getOrNull()
                 karoo.dispatch(
                     InRideAlert(

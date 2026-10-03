@@ -29,6 +29,14 @@ object TrailMatcher {
         val origin = trail.first()
         val proj = Projection(origin.lat)
         val r = run.map { proj.xy(it.lat, it.lon, origin) }
+        // Cheap reject first: the trail's start and end must lie within the run's bounding box (plus tolerance).
+        val pad = ENDPOINT_TOLERANCE_M
+        val minX = r.minOf { it[0] } - pad
+        val maxX = r.maxOf { it[0] } + pad
+        val minY = r.minOf { it[1] } - pad
+        val maxY = r.maxOf { it[1] } + pad
+        val endXy = proj.xy(trail.last().lat, trail.last().lon, origin)
+        if (0.0 !in minX..maxX || 0.0 !in minY..maxY || endXy[0] !in minX..maxX || endXy[1] !in minY..maxY) return null
         val tr = trail.map { proj.xy(it.lat, it.lon, origin) }
         val start = closest(r, tr.first(), 0) ?: return null
         if (start.distance > ENDPOINT_TOLERANCE_M) return null
