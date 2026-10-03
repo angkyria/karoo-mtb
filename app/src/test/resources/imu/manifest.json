@@ -1,0 +1,33 @@
+{
+ "comment": "IMU snippets replayed by JumpFixtureTest.kt (MEDIUM sensitivity unless 'preset' says otherwise). Write them with mtb_analyze.py --karoo-dir RIDE --imu --export-snippets DIR.",
+ "fixtures": [
+  {
+   "file": "synthetic_drop.csv",
+   "expectJump": true,
+   "source": "synthetic",
+   "airSec": 1.1,
+   "note": "1.1 s step-down"
+  },
+  {
+   "file": "synthetic_hop.csv",
+   "expectJump": false,
+   "source": "synthetic",
+   "airSec": 0.15,
+   "note": "0.15 s bunny hop (below MEDIUM's 0.28 s)"
+  },
+  {
+   "file": "synthetic_jump.csv",
+   "expectJump": true,
+   "source": "synthetic",
+   "airSec": 0.6,
+   "note": "clean 0.6 s jump"
+  },
+  {
+   "file": "synthetic_rough.csv",
+   "expectJump": false,
+   "source": "synthetic",
+   "airSec": null,
+   "note": "rough ground, no flight"
+  }
+ ]
+}

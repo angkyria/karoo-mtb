@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import sys
@@ -10,7 +11,7 @@ from typing import Callable
 
 from .history import history, history_text, load_any, ride_paths, trails_text, write_history_csv, write_history_html
 from .icu import IntervalsIcu, description_block, merged_description, parse_field_map, summary_value
-from .imu import imu_report
+from .imu import _day_start, export_snippets, imu_report, labels_for
 from .loaders import _num, load_fit, load_karoo_dir, read_fit_bytes, rescore
 from .model import Ride
 from .report import Units, report_text, write_csv, write_html
@@ -26,6 +27,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--karoo-dir", help="ride folder pulled from the Karoo (samples.csv, events.jsonl)")
     p.add_argument("--imu", nargs="?", const="auto", metavar="IMU_CSV_GZ",
                    help="inspect a raw sensor log (default: imu.csv.gz in --karoo-dir) with every jump sensitivity")
+    p.add_argument("--labels", help="with --imu: CSV of 'HH:MM:SS,jump|nojump' (UTC) to rate each jump sensitivity; "
+                   "the Karoo's 'Mark moment' presses count as jump labels too")
+    p.add_argument("--export-snippets", metavar="DIR",
+                   help="with --imu: write each labelled flight (± 3 s of raw IMU, no GPS) as a test fixture, e.g. app/src/test/resources/imu")
     p.add_argument("--icu", metavar="ID|latest", help="analyse an intervals.icu activity (needs INTERVALS_API_KEY)")
     p.add_argument("--icu-athlete", default=os.environ.get("INTERVALS_ATHLETE_ID", "0"), help="athlete id (default 0 = you)")
     p.add_argument("--icu-key", default=os.environ.get("INTERVALS_API_KEY"), help="intervals.icu API key")
@@ -116,7 +121,14 @@ def main(argv: list[str] | None = None) -> int:
     if a.imu:
         imu_path = a.imu if a.imu != "auto" else os.path.join(a.karoo_dir or "", "imu.csv.gz")
         if os.path.exists(imu_path):
-            print("\n" + imu_report(ride, imu_path))
+            print("\n" + imu_report(ride, imu_path, a.labels))
+            if a.export_snippets:
+                labels = labels_for(ride, a.labels, _day_start(ride.start))
+                if not labels:
+                    print("no labels: press 'Mark moment' after jumps on the Karoo, or pass --labels")
+                prefix = dt.datetime.fromtimestamp(ride.start, dt.timezone.utc).strftime("%Y%m%d_%H%M_")
+                for name in export_snippets(imu_path, labels, a.export_snippets, prefix):
+                    print(f"wrote {os.path.join(a.export_snippets, name)}")
         else:
             print(f"\nno raw sensor log at {imu_path} (enable 'Debug: save raw sensor data' on the Karoo)")
     if a.json:

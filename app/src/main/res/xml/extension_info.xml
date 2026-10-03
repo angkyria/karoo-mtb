@@ -139,4 +139,8 @@
         graphical="false"
         icon="@drawable/ic_gear"
         typeId="easier-gears" />
+    <!-- Assign to a controller button: Profiles → (profile) → controller / remote → MTB Dynamics -->
+    <BonusAction
+        actionId="mark"
+        displayName="@string/action_mark" />
 </ExtensionInfo>

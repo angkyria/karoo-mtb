@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import io.github.angkyria.karoomtb.engine.Corner
 import io.github.angkyria.karoomtb.engine.Jump
+import io.github.angkyria.karoomtb.engine.Marker
 import io.github.angkyria.karoomtb.engine.RideSummary
 import io.github.angkyria.karoomtb.engine.SecondSample
 import io.github.angkyria.karoomtb.engine.Shift
@@ -34,7 +35,7 @@ data class NtfyStatus(val state: String, val detail: String = "", val atWallMs: 
 }
 
 @Serializable
-private data class StoredEvent(val jump: Jump? = null, val corner: Corner? = null, val shift: Shift? = null)
+private data class StoredEvent(val jump: Jump? = null, val corner: Corner? = null, val shift: Shift? = null, val marker: Marker? = null)
 
 /**
  * One directory per ride (named after the start time) under the app's external files dir, so
@@ -42,7 +43,7 @@ private data class StoredEvent(val jump: Jump? = null, val corner: Corner? = nul
  *
  *  - meta.json      ride metadata
  *  - samples.csv    one row per second (the same data that goes into the FIT file and more)
- *  - events.jsonl   jumps and corners
+ *  - events.jsonl   jumps, corners, shifts and marked moments
  *  - summary.json   end-of-ride summary (also what is sent over ntfy)
  *  - ntfy.json      delivery status of the ntfy notification
  *
@@ -68,7 +69,7 @@ class RideStore(context: Context) {
                 File(dir, SAMPLES).appendText(batch.samples.joinToString("") { toCsv(it) + "\n" })
             }
             val events = batch.jumps.map { StoredEvent(jump = it) } + batch.corners.map { StoredEvent(corner = it) } +
-                batch.shifts.map { StoredEvent(shift = it) }
+                batch.shifts.map { StoredEvent(shift = it) } + batch.markers.map { StoredEvent(marker = it) }
             if (events.isNotEmpty()) {
                 File(dir, EVENTS).appendText(events.joinToString("") { json.encodeToString(it) + "\n" })
             }
@@ -113,6 +114,8 @@ class RideStore(context: Context) {
     fun loadCorners(dir: File): List<Corner> = loadEvents(dir).mapNotNull { it.corner }
 
     fun loadShifts(dir: File): List<Shift> = loadEvents(dir).mapNotNull { it.shift }
+
+    fun loadMarkers(dir: File): List<Marker> = loadEvents(dir).mapNotNull { it.marker }
 
     private fun loadEvents(dir: File): List<StoredEvent> {
         val file = File(dir, EVENTS)

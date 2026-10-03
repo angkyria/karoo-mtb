@@ -41,6 +41,14 @@ class MtbExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
         emitter.setCancellable { job.cancel() }
     }
 
+    /** Controller / remote buttons (extension_info BonusAction). */
+    override fun onBonusAction(actionId: String) {
+        Log.i(TAG, "bonus action $actionId")
+        when (actionId) {
+            ACTION_MARK -> controller?.markMoment()
+        }
+    }
+
     override fun onDestroy() {
         controller?.stop()
         controller = null
@@ -51,6 +59,7 @@ class MtbExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
 
     companion object {
         const val EXTENSION_ID = "karoo-mtb"
+        const val ACTION_MARK = "mark"
         private const val TAG = "MtbExtension"
     }
 }

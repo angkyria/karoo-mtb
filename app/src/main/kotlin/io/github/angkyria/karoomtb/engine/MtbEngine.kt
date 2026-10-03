@@ -21,6 +21,7 @@ data class StorageBatch(
     val jumps: List<Jump>,
     val corners: List<Corner>,
     val shifts: List<Shift> = emptyList(),
+    val markers: List<Marker> = emptyList(),
 )
 
 /**
@@ -112,6 +113,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     private val storageCorners = ArrayList<Corner>()
     private val shifts = ArrayList<Shift>()
     private val storageShifts = ArrayList<Shift>()
+    private val markers = ArrayList<Marker>()
+    private val storageMarkers = ArrayList<Marker>()
 
     // Live coaching and alerts.
     private val coach = BikeCoach()
@@ -157,6 +160,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         storageCorners.clear()
         shifts.clear()
         storageShifts.clear()
+        markers.clear()
+        storageMarkers.clear()
         coach.reset()
         pendingAlerts.clear()
         bikeDataSeen = false
@@ -212,6 +217,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         restoredCorners: List<Corner>,
         newConfig: MtbConfig = config,
         restoredShifts: List<Shift> = emptyList(),
+        restoredMarkers: List<Marker> = emptyList(),
     ) = synchronized(lock) {
         start(startWallMs, nowElapsedMs - (nowWallMs - startWallMs), newConfig)
         var lap = 0
@@ -236,6 +242,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         jumps += restoredJumps
         corners += restoredCorners
         shifts += restoredShifts
+        markers += restoredMarkers
         // Replay the descent tracker silently so numbering and a descent in progress continue.
         for (i in samples.indices) descents.onSample(samples, i, config.segmentMinElevationM)
     }
@@ -324,6 +331,31 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         if (this.status == RideStatus.IDLE) return@synchronized
         batteries[component] = BatteryInfo(component, status, percent)
         coach.onBattery(component, status, pendingAlerts)
+    }
+
+    /**
+     * The rider marked this moment (controller button). Null when not recording. The marker
+     * carries the last flight if it landed within [MARK_FLIGHT_WINDOW_SEC] before the press.
+     */
+    fun markMoment(wallMs: Long, elapsedMs: Long): Marker? = synchronized(lock) {
+        if (status != RideStatus.RECORDING) return null
+        val flight = jumpDetector.lastFlight
+        val nowSec = elapsedMs / 1000.0
+        val ago = flight?.let { nowSec - (it.takeoffSec + it.airSec) }?.takeIf { it in -1.0..MARK_FLIGHT_WINDOW_SEC }
+        val marker = Marker(
+            n = markers.size + 1,
+            wallMs = wallMs,
+            offsetSec = (elapsedMs - rideStartElapsedMs) / 1000.0,
+            lat = lat.takeUnless { it.isNaN() },
+            lon = lon.takeUnless { it.isNaN() },
+            flightAgoSec = ago?.coerceAtLeast(0.0),
+            flightAirSec = flight?.airSec?.takeIf { ago != null },
+            flightLandingG = flight?.landingG?.takeIf { ago != null },
+            flightVerdict = flight?.reason?.takeIf { ago != null },
+        )
+        markers += marker
+        storageMarkers += marker
+        marker
     }
 
     /** Coaching alerts raised since the last call. */
@@ -481,11 +513,12 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     }
 
     fun drainForStorage(): StorageBatch = synchronized(lock) {
-        StorageBatch(storageSamples.toList(), storageJumps.toList(), storageCorners.toList(), storageShifts.toList()).also {
+        StorageBatch(storageSamples.toList(), storageJumps.toList(), storageCorners.toList(), storageShifts.toList(), storageMarkers.toList()).also {
             storageSamples.clear()
             storageJumps.clear()
             storageCorners.clear()
             storageShifts.clear()
+            storageMarkers.clear()
         }
     }
 
@@ -510,7 +543,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             batteries = batteries.values.toList(),
             faMode = faMode,
             faBias = faBias,
-        )
+        ).copy(markers = markers.toList())
     }
 
     // ---- Internals -------------------------------------------------------------------------
@@ -545,7 +578,10 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     private fun acceptJump(raw: RawJump): Jump? {
         val takeoffElapsedMs = (raw.takeoffSec * 1000.0).roundToLong()
         val v0 = takeoffSpeed(takeoffElapsedMs)
-        if (v0 < config.jumpMinSpeed) return null
+        if (v0 < config.jumpMinSpeed) {
+            jumpDetector.rejectLast(String.format(java.util.Locale.ROOT, "take-off speed %.0f km/h", v0 * 3.6))
+            return null
+        }
         val distance = v0 * raw.airSec
         val jump = Jump(
             n = jumps.size + 1,
@@ -905,5 +941,6 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         private const val SPEED_HISTORY_MS = 10_000L
         private const val CORNER_FEED_SEC = 0.1
         private const val ALTITUDE_SETTLE_MS = 3_000L
+        const val MARK_FLIGHT_WINDOW_SEC = 15.0
     }
 }

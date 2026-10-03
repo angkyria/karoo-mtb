@@ -141,6 +141,7 @@ def load_fit(raw: bytes, source: str = "") -> Ride:
     cassette = session.get("rear_gear")
     ride.cassette = sorted(int(x) for x in cassette) if isinstance(cassette, (list, tuple)) else None
     _load_gears(ride, messages.get("event_mesgs", []))
+    ride.markers = _markers_from_fit(messages.get("event_mesgs", []))
     ride.devices = _sram_devices(messages.get("device_info_mesgs", []))
 
     # Laps -> sample index where each lap starts.
@@ -164,6 +165,18 @@ def load_fit(raw: bytes, source: str = "") -> Ride:
             estimate_braking(ride)  # Garmin files carry grit/flow but no braking trace
     _refine_jump_heights(ride)
     return ride
+
+
+def _markers_from_fit(events: Iterable[dict]) -> list[dict]:
+    """The rider's "Mark moment" presses: FIT user_marker events (event 32)."""
+    out = []
+    for e in events:
+        if e.get("event") not in ("user_marker", 32):
+            continue
+        t = _ts(e.get("timestamp"))
+        if t is not None:
+            out.append({"n": len(out) + 1, "t": t})
+    return out
 
 
 def _load_gears(ride: Ride, events: Iterable[dict]) -> None:
@@ -267,6 +280,10 @@ def load_karoo_dir(path: str) -> Ride:
                 if sh:
                     shifts.append({"t": sh["wallMs"] / 1000.0, "gear": sh.get("gear"), "teeth": sh.get("teeth"),
                                    "from_teeth": sh.get("fromTeeth"), "power": sh.get("powerW"), "cadence": sh.get("cadenceRpm")})
+                m = e.get("marker")
+                if m:
+                    ride.markers.append({"n": m["n"], "t": m["wallMs"] / 1000.0, "flight_air": m.get("flightAirSec"),
+                                         "verdict": m.get("flightVerdict")})
                 c = e.get("corner")
                 if c:
                     corners.append({

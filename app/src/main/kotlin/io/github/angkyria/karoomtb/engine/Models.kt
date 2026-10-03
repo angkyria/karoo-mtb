@@ -26,6 +26,25 @@ data class Jump(
     val lon: Double? = null,
 )
 
+/**
+ * The rider pressed the "mark" button (a controller / remote action): what happened is worth a
+ * look, typically a jump. Carries the last flight the detector saw, if it landed shortly before.
+ */
+@Serializable
+data class Marker(
+    val n: Int,
+    val wallMs: Long,
+    val offsetSec: Double,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    /** Seconds from the landing of the last flight to the press, null without a recent flight. */
+    val flightAgoSec: Double? = null,
+    val flightAirSec: Double? = null,
+    val flightLandingG: Double? = null,
+    /** Empty = counted as a jump; otherwise why it was not. */
+    val flightVerdict: String? = null,
+)
+
 /** One detected corner (heading change of at least 35°). Positive angle = left turn. */
 @Serializable
 data class Corner(
@@ -524,4 +543,6 @@ data class RideSummary(
     val descentTracks: List<SegmentTrack> = emptyList(),
     /** Descents recognised as trails ridden before (filled in when the ride ends). */
     val trailRuns: List<TrailRunResult> = emptyList(),
+    /** Moments the rider marked with the controller button. */
+    val markers: List<Marker> = emptyList(),
 )

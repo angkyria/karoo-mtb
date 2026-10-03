@@ -163,6 +163,21 @@ def report_text(s: dict, u: Units) -> str:
             pos = f" · {b['lat']:.5f}, {b['lon']:.5f}" if b.get("lat") is not None else ""
             lines.append(f"  {n}. {where} · {u.short(b['flow_m'])} braking · {u.speed(b['speed_before_ms'])} → {u.speed(b['speed_after_ms'])}{pos}")
 
+    markers = s.get("markers") or []
+    if markers:
+        lines.append("")
+        lines.append("Marked moments (Karoo 'Mark moment' button)")
+        for m in markers:
+            at = dt.datetime.fromtimestamp(m["t"], dt.timezone.utc).strftime("%H:%M:%S")
+            if m.get("flight_air") is None:
+                what = "no flight seen" if "verdict" in m else ""
+            elif m.get("verdict"):
+                what = f"flight {m['flight_air']:.2f} s not counted: {m['verdict']}"
+            else:
+                what = f"jump {m['flight_air']:.2f} s counted"
+            lines.append(f"  #{m['n']}  {at} UTC  {what}".rstrip())
+        lines.append("  (check them with --imu; --export-snippets turns them into test fixtures)")
+
     table(s["segments"], "Trail segments")
     table(s["laps"], "Laps")
     lc = s.get("lap_comparison")

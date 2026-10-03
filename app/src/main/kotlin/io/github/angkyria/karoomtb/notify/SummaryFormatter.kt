@@ -4,6 +4,8 @@ import io.github.angkyria.karoomtb.engine.BrakingSpot
 import io.github.angkyria.karoomtb.engine.Insights
 import io.github.angkyria.karoomtb.engine.Jump
 import io.github.angkyria.karoomtb.engine.LapComparison
+import io.github.angkyria.karoomtb.engine.Marker
+import io.github.angkyria.karoomtb.engine.MtbEngine
 import io.github.angkyria.karoomtb.engine.RideSummary
 import io.github.angkyria.karoomtb.engine.SegmentStats
 import io.github.angkyria.karoomtb.engine.TrailRunResult
@@ -91,6 +93,13 @@ object SummaryFormatter {
     )
 
     fun jumpAlertTitle(jump: Jump): String = fmt("Jump! %.2f s airtime", jump.airSec)
+
+    /** What the detector made of the flight before a marker: counted, or why not. */
+    fun markerDetail(m: Marker): String = when {
+        m.flightAirSec == null -> fmt("No flight in the last %.0f s", MtbEngine.MARK_FLIGHT_WINDOW_SEC)
+        m.flightVerdict.isNullOrEmpty() -> fmt("Jump %.2f s, %.0f s ago: counted", m.flightAirSec, m.flightAgoSec ?: 0.0)
+        else -> fmt("Flight %.2f s, %.0f s ago: not counted (%s)", m.flightAirSec, m.flightAgoSec ?: 0.0, m.flightVerdict)
+    }
 
     fun jumpAlertDetail(jump: Jump, units: Units): String =
         "${units.meters(jump.distanceM)} · ${units.speed(jump.speedMs)} · ${fmt("%.1f g", jump.landingG)} landing"

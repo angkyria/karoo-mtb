@@ -86,6 +86,7 @@ class Ride:
     karoo_corners: list[dict] | None = None   # gyroscope corners from a Karoo ride folder
     shifts: list[dict] = field(default_factory=list)    # {t, gear, teeth, from_teeth, power, cadence}
     devices: list[dict] = field(default_factory=list)   # SRAM components with battery level
+    markers: list[dict] = field(default_factory=list)   # "Mark moment" button presses {n, t, flight_air, verdict}
     fa_mode: int | None = None
     fa_bias: int | None = None
     cassette: list[int] | None = None

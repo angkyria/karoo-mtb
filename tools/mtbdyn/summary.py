@@ -173,6 +173,7 @@ def summarize(ride: Ride, min_elev: float = 15.0) -> dict:
         "score": {"total": mtb_score(diff, smooth, air), "difficulty": diff, "smoothness": smooth, "air": air},
         "segments": segments, "laps": laps,
         "lap_comparison": lap_comparison(laps),
+        "markers": ride.markers,
         "braking_spots": braking_spots(ride, segments),
         "sram": {
             "suspension": suspension_stats(ride, kinds, seg_ranges),

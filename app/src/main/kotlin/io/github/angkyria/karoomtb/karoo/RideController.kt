@@ -106,6 +106,24 @@ class RideController(
         }
     }
 
+    /**
+     * The "Mark moment" controller action: stores a marker (events.jsonl, FIT user_marker event)
+     * and shows what the jump detector made of the last flight, so real jumps can be checked.
+     */
+    fun markMoment() {
+        val marker = engine.markMoment(System.currentTimeMillis(), SystemClock.elapsedRealtime()) ?: return
+        MtbRuntime.fitEffects.tryEmit(MtbFitFields.marker(marker.n))
+        Log.i(TAG, "marker ${marker.n}: flight ${marker.flightAirSec} verdict '${marker.flightVerdict}'")
+        karoo.dispatch(
+            InRideAlert(
+                id = "mtb-marker", icon = R.drawable.ic_jump, title = "Marked #${marker.n}",
+                detail = SummaryFormatter.markerDetail(marker), autoDismissMs = 4_000,
+                backgroundColor = R.color.alert_info_bg, textColor = R.color.alert_text,
+            ),
+        )
+        karoo.dispatch(PlayBeepPattern(listOf(PlayBeepPattern.Tone(2600, 60))))
+    }
+
     fun onConnected() {
         scope.launch {
             delay(5_000)
@@ -172,7 +190,7 @@ class RideController(
             engine.restore(
                 meta.startWallMs, nowWall, nowElapsed,
                 store.loadSamples(unfinished), store.loadJumps(unfinished), store.loadCorners(unfinished),
-                settings.mtbConfig(), store.loadShifts(unfinished),
+                settings.mtbConfig(), store.loadShifts(unfinished), store.loadMarkers(unfinished),
             )
             rideDir = unfinished
         } else {
@@ -254,7 +272,7 @@ class RideController(
         val replay = MtbEngine(settings.mtbConfig())
         replay.restore(
             meta.startWallMs, lastWall, SystemClock.elapsedRealtime(), samples, store.loadJumps(dir), store.loadCorners(dir),
-            restoredShifts = store.loadShifts(dir),
+            restoredShifts = store.loadShifts(dir), restoredMarkers = store.loadMarkers(dir),
         )
         val summary = withTrails(replay.finish(lastWall + 1000, SummaryMeta(appVersion, meta.profileName, meta.device)))
         store.saveSummary(dir, summary)
