@@ -73,6 +73,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("fit_native", true)
         set(v) = prefs.edit().putBoolean("fit_native", v).apply()
 
+    /** Jumps, marked moments and rough sections on the Karoo map. */
+    var mapLayer: Boolean
+        get() = prefs.getBoolean("map_layer", true)
+        set(v) = prefs.edit().putBoolean("map_layer", v).apply()
+
     /** In-ride alert at the bottom of each descent (time, drop, Flow, braking, jumps). */
     var descentAlerts: Boolean
         get() = prefs.getBoolean("alert_descent", true)

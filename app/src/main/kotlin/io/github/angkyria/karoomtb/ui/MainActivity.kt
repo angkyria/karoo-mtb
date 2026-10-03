@@ -64,6 +64,7 @@ class MainActivity : Activity() {
     private lateinit var jumpAlerts: Switch
     private lateinit var jumpBeep: Switch
     private lateinit var alertDescent: Switch
+    private lateinit var mapLayer: Switch
     private lateinit var mtbOnly: Switch
     private lateinit var segmentElev: EditText
     private lateinit var fitNative: Switch
@@ -100,6 +101,7 @@ class MainActivity : Activity() {
         jumpAlerts = findViewById(R.id.jump_alerts)
         jumpBeep = findViewById(R.id.jump_beep)
         alertDescent = findViewById(R.id.alert_descent)
+        mapLayer = findViewById(R.id.map_layer)
         mtbOnly = findViewById(R.id.mtb_only)
         segmentElev = findViewById(R.id.segment_elev)
         fitNative = findViewById(R.id.fit_native)
@@ -207,6 +209,7 @@ class MainActivity : Activity() {
         jumpAlerts.isChecked = settings.jumpAlerts
         jumpBeep.isChecked = settings.jumpBeep
         alertDescent.isChecked = settings.descentAlerts
+        mapLayer.isChecked = settings.mapLayer
         mtbOnly.isChecked = settings.mtbProfilesOnly
         segmentElev.setText(settings.segmentMinElevationM.toString())
         fitNative.isChecked = settings.writeNativeFit
@@ -237,6 +240,7 @@ class MainActivity : Activity() {
         settings.jumpAlerts = jumpAlerts.isChecked
         settings.jumpBeep = jumpBeep.isChecked
         settings.descentAlerts = alertDescent.isChecked
+        settings.mapLayer = mapLayer.isChecked
         settings.mtbProfilesOnly = mtbOnly.isChecked
         settings.segmentMinElevationM = segmentElev.text.toString().toIntOrNull() ?: settings.segmentMinElevationM
         settings.writeNativeFit = fitNative.isChecked

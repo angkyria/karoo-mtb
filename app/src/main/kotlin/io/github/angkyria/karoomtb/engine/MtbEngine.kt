@@ -116,6 +116,10 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     private val markers = ArrayList<Marker>()
     private val storageMarkers = ArrayList<Marker>()
 
+    // Map layer: jumps, markers and rough sections; the version tells the layer to redraw.
+    private val roughSections = RoughSections()
+    private var mapVersion = 0
+
     // Live coaching and alerts.
     private val coach = BikeCoach()
     private val pendingAlerts = ArrayList<RideAlert>()
@@ -162,6 +166,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         storageShifts.clear()
         markers.clear()
         storageMarkers.clear()
+        roughSections.reset()
+        mapVersion++
         coach.reset()
         pendingAlerts.clear()
         bikeDataSeen = false
@@ -355,7 +361,22 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         )
         markers += marker
         storageMarkers += marker
+        mapVersion++
         marker
+    }
+
+    /** Changes whenever [mapFeatures] has something new. */
+    val mapVersionNow: Int get() = synchronized(lock) { mapVersion }
+
+    /** Jumps, markers and rough sections with a position, for the Karoo map layer. */
+    fun mapFeatures(): MapFeatures = synchronized(lock) {
+        MapFeatures(
+            ride = rideStartWallMs,
+            version = mapVersion,
+            jumps = jumps.filter { it.lat != null && it.lon != null },
+            markers = markers.filter { it.lat != null && it.lon != null },
+            rough = roughSections.sections.toList(),
+        )
     }
 
     /** Coaching alerts raised since the last call. */
@@ -468,6 +489,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         val recent = (samples.takeLast(4) + sample).map { it.rough }.filter { !it.isNaN() }
         coach.onSecond(sample, if (recent.isEmpty()) Double.NaN else recent.average(), tSec, pendingAlerts)
         if (sample.hasBikeData) bikeDataSeen = true
+        if (roughSections.onSecond(sample)) mapVersion++
         samples += sample
         totals.addImmediate(sample)
         lapTotals[sample.lap].addImmediate(sample)
@@ -599,6 +621,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             lon = lon.takeUnless { it.isNaN() },
         )
         jumps += jump
+        mapVersion++
         jumpsAwaitingAltitude += jumps.lastIndex
         jumpsForNextRecord += jump
         gritBonus += Scoring.GRIT_PER_AIR_SECOND * raw.airSec

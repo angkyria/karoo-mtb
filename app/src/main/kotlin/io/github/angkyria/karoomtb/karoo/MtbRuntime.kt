@@ -3,6 +3,7 @@ package io.github.angkyria.karoomtb.karoo
 import android.content.Context
 import io.github.angkyria.karoomtb.Settings
 import io.github.angkyria.karoomtb.engine.LiveMetrics
+import io.github.angkyria.karoomtb.engine.MapFeatures
 import io.github.angkyria.karoomtb.engine.MtbEngine
 import io.github.angkyria.karoomtb.notify.Units
 import io.github.angkyria.karoomtb.service.ServiceTracker
@@ -20,6 +21,9 @@ object MtbRuntime {
 
     /** Updated every second while riding; the data fields render from this. */
     val live = MutableStateFlow(LiveMetrics())
+
+    /** What the Karoo map layer shows ([MtbExtension.startMap]). */
+    val map = MutableStateFlow(MapFeatures())
 
     /** Effects for the FIT file, consumed by [MtbExtension.startFit]. */
     val fitEffects = MutableSharedFlow<FitEffect>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)

@@ -5,6 +5,7 @@
     fitFile="true"
     icon="@drawable/ic_mtb"
     id="karoo-mtb"
+    mapLayer="true"
     scansDevices="false">
     <DataType
         description="@string/dt_panel_desc"

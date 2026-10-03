@@ -231,6 +231,7 @@ class RideController(
             MtbRuntime.live.value = out.live
             out.record?.let { MtbRuntime.fitEffects.tryEmit(MtbFitFields.record(it, settings.writeNativeFit)) }
             engine.pollAlerts().forEach(::showAlert)
+            if (engine.mapVersionNow != MtbRuntime.map.value.version) MtbRuntime.map.value = engine.mapFeatures()
             count++
             if (count % SESSION_EVERY_SEC == 0) emitSession()
             if (count % STORE_EVERY_SEC == 0) flushStorage()

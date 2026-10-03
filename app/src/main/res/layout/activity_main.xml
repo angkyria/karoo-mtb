@@ -200,6 +200,11 @@
             android:text="Show an alert at the bottom of each descent" />
 
         <Switch
+            android:id="@+id/map_layer"
+            style="@style/Toggle"
+            android:text="Show jumps, marked moments and rough ground on the Karoo map" />
+
+        <Switch
             android:id="@+id/mtb_only"
             style="@style/Toggle"
             android:text="Only in MTB / eMTB ride profiles" />
