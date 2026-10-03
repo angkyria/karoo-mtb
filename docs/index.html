@@ -187,8 +187,8 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
         <a class="btn primary" href="https://github.com/angkyria/karoo-mtb">
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           Source on GitHub</a>
+        <a class="btn" href="https://github.com/angkyria/karoo-mtb/releases/latest">Download test release</a>
         <a class="btn" href="demo/report.html">Demo ride report</a>
-        <a class="btn" href="#testing">Help test it</a>
       </div>
     </div>
     <div>
@@ -228,7 +228,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
       <div>
         <h3>This is a testing / debug project</h3>
         <p>It runs on the developer's Karoo 2, and real rides were used to calibrate it. But it is young:
-          numbers can still change between versions, and there is no signed release yet. Expect rough edges. Bug reports with logs are very welcome.</p>
+          numbers can still change between versions, and releases are test builds. Expect rough edges. Bug reports with logs are very welcome.</p>
         <div class="cols2">
           <div>
             <strong>Verified on a Karoo 2</strong>
@@ -356,22 +356,19 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: 
 
 <section id="install">
   <div class="wrap">
-    <h2>Install a test build</h2>
-    <p class="lead">There is no signed release yet. Build the APK yourself, or download the <code>karoo-mtb</code> artifact from the latest successful <a href="https://github.com/angkyria/karoo-mtb/actions">GitHub Actions run</a> (needs a GitHub login). Then install it over USB.</p>
+    <h2>Install the test release</h2>
+    <p class="lead">Works on Karoo 2 and Karoo 3 with any 2024+ firmware. Releases are signed, so the Karoo can update from one test release to the next.</p>
     <ol class="steps">
-      <li><h3>Build or download the APK</h3>
-        <pre><code>export GPR_USER=&lt;github user&gt; GPR_KEY=$(gh auth token)   # karoo-ext is on GitHub Packages
-./gradlew :app:assembleDebug                             # app/build/outputs/apk/debug/app-debug.apk</code></pre>
-        <p>Needs JDK 17 and the Android SDK. The token needs <code>read:packages</code>.</p></li>
-      <li><h3>Install over USB</h3>
-        <pre><code>adb install -r app-debug.apk</code></pre>
-        <p>Builds signed with different keys don't install over each other. Pull your ride folder first, then uninstall the old build.</p></li>
+      <li><h3>Get <code>karoo-mtb.apk</code> from the <a href="https://github.com/angkyria/karoo-mtb/releases/latest">latest release</a></h3>
+        <p><strong>Companion app:</strong> on your phone, long-press <code>karoo-mtb.apk</code> on the release page → Share → <strong>Hammerhead</strong>. The Karoo installs it and offers later releases as updates.<br>
+          <strong>USB:</strong> <code>adb install -r karoo-mtb.apk</code></p>
+        <p class="small">A self-built APK, or one from a CI run, is signed with a different key and won't install over the release (or the other way round). Pull your ride folder first, then uninstall the old build. That also resets the settings, so note your ntfy topic.</p></li>
       <li><h3>Set up ntfy</h3>
         <p>Open <strong>MTB Dynamics</strong> from the app drawer. Scan the QR code with the <a href="https://ntfy.sh">ntfy</a> app, then press <strong>Send test notification</strong>.</p></li>
       <li><h3>Add data fields and ride</h3>
         <p>Profiles → page → add field → MTB Dynamics. The extension records every ride, even with no field on screen.</p></li>
     </ol>
-    <p class="muted small" style="margin-top:16px">Full documentation: <a href="https://github.com/angkyria/karoo-mtb#readme">README</a> · <a href="https://github.com/angkyria/karoo-mtb/blob/main/intervals-icu/README.md">intervals.icu setup</a> · <a href="https://github.com/angkyria/karoo-mtb/tree/main/tools">analysis tool</a></p>
+    <p class="muted small" style="margin-top:16px">Prefer to build it yourself? See <a href="https://github.com/angkyria/karoo-mtb#building-from-source">Building from source</a>. Full documentation: <a href="https://github.com/angkyria/karoo-mtb#readme">README</a> · <a href="https://github.com/angkyria/karoo-mtb/blob/main/intervals-icu/README.md">intervals.icu setup</a> · <a href="https://github.com/angkyria/karoo-mtb/tree/main/tools">analysis tool</a></p>
   </div>
 </section>
 
@@ -404,7 +401,7 @@ python3 tools/mtb_analyze.py --karoo-dir rides/&lt;ride&gt; --html report.html -
   <div class="wrap">
     <div>MTB Dynamics for Karoo · built on Hammerhead's <a href="https://github.com/hammerheadnav/karoo-ext">karoo-ext</a> SDK<br>
       Not affiliated with Garmin, Hammerhead or SRAM. "Grit", "Flow" and "MTB Dynamics" describe Garmin's features this project is modelled on.</div>
-    <div><a href="https://github.com/angkyria/karoo-mtb">GitHub</a> · <a href="https://github.com/angkyria/karoo-mtb/issues">Issues</a> · <button class="theme-toggle" id="theme" type="button">Toggle theme</button></div>
+    <div><a href="https://github.com/angkyria/karoo-mtb">GitHub</a> · <a href="https://github.com/angkyria/karoo-mtb/issues">Issues</a> · <a href="https://github.com/angkyria/karoo-mtb/blob/main/LICENSE">Apache-2.0</a> · <button class="theme-toggle" id="theme" type="button">Toggle theme</button></div>
   </div>
 </footer>
 <script>

@@ -2,12 +2,14 @@
 
 [![Build](https://github.com/angkyria/karoo-mtb/actions/workflows/build.yml/badge.svg)](https://github.com/angkyria/karoo-mtb/actions/workflows/build.yml)
 [![Website](https://img.shields.io/badge/website-angkyria.github.io%2Fkaroo--mtb-ff6d00)](https://angkyria.github.io/karoo-mtb/)
+[![Release](https://img.shields.io/github/v/release/angkyria/karoo-mtb?label=test%20release)](https://github.com/angkyria/karoo-mtb/releases/latest)
 ![Status: testing](https://img.shields.io/badge/status-testing%20%2F%20debug-f9a825)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 > [!WARNING]
 > **Testing / debug builds (v0.2.0).** This runs on the developer's Karoo 2 and was calibrated
-> with real rides. But there is no signed release yet, numbers can still change between versions,
-> and parts of it have not been on a real ride yet (see [Testing status](#testing-status)).
+> with real rides. Releases are test builds: numbers can still change between versions, and parts
+> of it have not been on a real ride yet (see [Testing status](#testing-status)).
 > Please [report bugs](../../issues/new/choose) with logs: [Testing & debugging](#testing--debugging)
 > shows how to collect them.
 
@@ -104,17 +106,18 @@ reminders when something is due):
 Works on **Karoo 2** (Android 8.1) and **Karoo 3**. Both have the accelerometer and gyroscope the
 extension needs. Karoo OS must support extensions (any 2024+ firmware).
 
-1. Get a test build. **There is no signed release yet**, so either
-   * build it yourself (see [Building from source](#building-from-source)): `./gradlew :app:assembleDebug`, or
-   * download the `karoo-mtb` artifact of the latest successful [CI run](../../actions/workflows/build.yml)
-     (needs a GitHub login),
+1. Install `karoo-mtb.apk` from the latest [test release](../../releases/latest):
+   * **Companion app:** on your phone, open the release page, long-press `karoo-mtb.apk` → *Share* →
+     **Hammerhead** companion app. The Karoo installs it and offers later releases as updates
+     (through `manifest.json` in the release).
+   * **USB:** `adb install -r karoo-mtb.apk`
 
-   and install it over USB: `adb install -r app-debug.apk` (or `karoo-mtb.apk` from CI).
-   Builds signed with different keys (your own build, CI) don't install over each other. Pull your
-   ride folder first ([Testing & debugging](#testing--debugging)), then uninstall the old build.
-   Once signed releases exist, the Hammerhead companion app can install the APK from the release
-   page (long-press `karoo-mtb.apk` → *Share* → **Hammerhead**), and the Karoo offers updates
-   through the release's `manifest.json`.
+   Releases are signed with the project's release key. To check a download:
+   `apksigner verify --print-certs karoo-mtb.apk` must show the certificate SHA-256
+   `45af0f1e4d3de1b47c9af89e190cb5bec2fd91e298b6af3f7689450d54645324`.
+   An APK you built yourself, or one from a CI run, is signed with a different key, so the two don't
+   install over each other. Pull your ride folder first ([Testing & debugging](#testing--debugging)),
+   then uninstall the old build. (Uninstalling also resets the settings: note your ntfy topic.)
 2. On the Karoo open **MTB Dynamics** from the app drawer:
    * scan the QR code with your phone and subscribe to the topic in the **ntfy** app
      ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy) / [iOS](https://apps.apple.com/app/ntfy/id1625396347)),
@@ -465,18 +468,19 @@ python3 -m unittest discover -s tools/tests             # analyser tests
 node intervals-icu/test/run.mjs                          # intervals.icu script tests
 ```
 
-**Releases**: push a tag like `v0.1.0`. The workflow builds, tests and attaches `karoo-mtb.apk`,
-`manifest.json` and the icon to a GitHub release. The Karoo then offers updates automatically.
-For updates to install over each other, sign every release with the same key:
+**Releases**: push a tag like `v0.2.1`. The workflow builds and tests, then attaches
+`karoo-mtb.apk`, `manifest.json` and the icon to a GitHub release, and the Karoo offers it as an
+update. CI signs every build with the release key from the repository secrets `KEYSTORE_BASE64`,
+`KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`, so releases install over each other.
+
+**Forks** need their own key, because without those secrets CI signs with a throwaway debug key:
 
 ```sh
-keytool -genkeypair -v -keystore karoo-mtb.jks -alias karoo-mtb -keyalg RSA -keysize 2048 -validity 10000
-base64 -i karoo-mtb.jks | pbcopy     # → repository secret KEYSTORE_BASE64
+keytool -genkeypair -v -keystore karoo-mtb.jks -storetype PKCS12 -alias karoo-mtb -keyalg RSA -keysize 4096 -validity 10000
+base64 -i karoo-mtb.jks | gh secret set KEYSTORE_BASE64     # then KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
 ```
 
-Add the secrets `KEYSTORE_PASSWORD`, `KEY_ALIAS` (`karoo-mtb`) and `KEY_PASSWORD`. Without them
-the APK is signed with the CI debug key, which changes between builds. The release URLs assume the
-repository `github.com/angkyria/karoo-mtb`; CI sets `BASE_URL` from the actual repository.
+The release URLs default to `github.com/angkyria/karoo-mtb`; CI sets `BASE_URL` from the actual repository.
 
 ### Layout
 
@@ -494,7 +498,9 @@ intervals-icu/ custom streams, fields, charts for intervals.icu (+ tests)
 docs/         website (GitHub Pages) with demo reports
 ```
 
----
+## License
 
-Not affiliated with Garmin or Hammerhead/SRAM. "Grit", "Flow" and "MTB Dynamics" describe
+[Apache License 2.0](LICENSE), Copyright 2026 Angelos Kyriacou. See [NOTICE](NOTICE).
+
+Not affiliated with Garmin, Hammerhead or SRAM. "Grit", "Flow" and "MTB Dynamics" describe
 Garmin's features this project is modelled on.
