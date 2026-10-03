@@ -551,10 +551,12 @@ that you have them and share them privately instead.
 ## Website
 
 <https://angkyria.github.io/karoo-mtb/> is served by GitHub Pages from [`docs/`](docs/). The demo
-ride report and history are generated from synthetic rides only:
+ride report, history and sample FIT are generated from synthetic rides only. The intervals.icu
+guide embeds the scripts from `intervals-icu/` (CI fails if it is out of date):
 
 ```sh
-python3 tools/make_site_demo.py     # rebuilds docs/demo/report.html and docs/demo/history.html
+python3 tools/make_site_demo.py     # docs/demo/report.html, docs/demo/history.html, docs/sample/*.fit
+python3 tools/make_site_guide.py    # docs/intervals-icu.html
 ```
 
 ## Building from source
