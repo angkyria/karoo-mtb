@@ -1,14 +1,14 @@
 // intervals.icu custom activity chart: MTB Trail Segments
 // Splits the ride into climbs, descents and flat sections (same rules as the Karoo app: 15 m
 // elevation reversals, long flat stretches cut out) and shows Grit, Flow, braking and jumps for each.
-// Needs the custom streams mtb_grit, mtb_flow, mtb_brake and mtb_jump_air.
+// Needs the custom streams MtbGrit, MtbFlow, MtbBrake and MtbJumpAir.
 {
   const H = 15
   const stream = code => { try { const s = icu.streams.get(code); if (s && s.data) return s.data } catch (e) {} return null }
   const imperial = !!(icu.athlete && icu.athlete.measurement_preference === 'feet')
   const dist = stream('distance') || [], rawAlt = stream('altitude') || stream('fixed_altitude') || []
   const time = stream('time') || [], vel = stream('velocity_smooth') || []
-  const grit = stream('mtb_grit') || [], flow = stream('mtb_flow') || [], brake = stream('mtb_brake') || [], air = stream('mtb_jump_air') || []
+  const grit = stream('MtbGrit') || [], flow = stream('MtbFlow') || [], brake = stream('MtbBrake') || [], air = stream('MtbJumpAir') || []
   const n = dist.length
   // Smoothed altitude (±5 samples), gaps filled.
   const filled = []

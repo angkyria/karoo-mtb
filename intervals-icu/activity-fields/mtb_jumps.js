@@ -5,7 +5,9 @@
   let s = icu.fit.session ? icu.fit.session[0] : null
   let v = s && s.mtb_jumps ? s.mtb_jumps.value : null
   if (v == null) {
-    v = s && s.jump_count ? s.jump_count.value : (icu.fit.jump ? icu.fit.jump.length : null)
+    // Empty rather than 0 for rides without MTB Dynamics: intervals.icu gives every ride a jump list.
+    if (s && s.jump_count) v = s.jump_count.value
+    else if (icu.fit.jump && icu.fit.jump.length) v = icu.fit.jump.length
   }
   v
 }

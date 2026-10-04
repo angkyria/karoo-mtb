@@ -88,8 +88,16 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
       <li>The Flight Attendant / AXS items need those parts paired with the Karoo. Skip them otherwise.</li>
     </ul>
     <div class="callout"><p><strong>Codes matter.</strong> Use the codes exactly as shown (click any <code>grey value</code> to copy it).
-      The interval fields and charts find the streams by these codes.</p>
+      The interval fields and charts find the streams by these codes. intervals.icu only accepts CamelCase codes and suggests one
+      from the name (<code>MTBGrit</code>): replace it with the code from the table.</p>
       <p>intervals.icu's menus change now and then. If a label differs slightly, the official forum posts linked in each step have screenshots.</p></div>
+    <div class="callout"><p><strong>Or let a script do all of it.</strong> With your API key (intervals.icu → Settings → Developer Settings),
+      <a href="https://github.com/angkyria/karoo-mtb/blob/main/tools/icu_setup.py"><code>tools/icu_setup.py</code></a> creates every stream, field and chart below and
+      finds your older rides that have MTB Dynamics or Flight Attendant data (see step 5):</p>
+      <pre><code>export INTERVALS_API_KEY=...
+python3 tools/icu_setup.py --dry-run && python3 tools/icu_setup.py
+python3 tools/icu_setup.py --no-items --reprocess 365 --snippet reprocess.js</code></pre>
+      <p>Then add the charts to the activity page (<strong>Charts</strong> → <strong>+</strong>) and pick the fields you want in the activity list.</p></div>
   </div>
 </section>
 
@@ -99,7 +107,7 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
     <p class="lead">The minimum to see Grit, Flow and jumps. You can add the rest later.</p>
     <ol>
       <li><strong>Three streams</strong> (activity → <strong>Charts</strong> under the activity chart → <strong>Custom Streams</strong> → <strong>Add Stream</strong>):
-        <ul><li><code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code>: FIT record field <code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code>, units <code class="chip" data-copy-text="grit" title="Click to copy">grit</code></li><li><code class="chip" data-copy-text="mtb_flow" title="Click to copy">mtb_flow</code>: script <a href="#s-streams-mtb_flow" class="scriptref">script ↓</a> (tick Processes fit file messages), units <code class="chip" data-copy-text="m" title="Click to copy">m</code></li><li><code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code>: FIT record field <code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code>, units <code class="chip" data-copy-text="s" title="Click to copy">s</code></li></ul></li>
+        <ul><li><code class="chip" data-copy-text="MtbGrit" title="Click to copy">MtbGrit</code>: FIT record field <code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code>, units <code class="chip" data-copy-text="grit" title="Click to copy">grit</code></li><li><code class="chip" data-copy-text="MtbFlow" title="Click to copy">MtbFlow</code>: script <a href="#s-streams-mtb_flow" class="scriptref">script ↓</a> (tick Processes fit file messages), units <code class="chip" data-copy-text="m" title="Click to copy">m</code></li><li><code class="chip" data-copy-text="MtbJumpAir" title="Click to copy">MtbJumpAir</code>: FIT record field <code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code>, units <code class="chip" data-copy-text="s" title="Click to copy">s</code></li></ul></li>
       <li><strong>Three activity fields</strong>, each reading a FIT session field directly (no script):
         <ul><li>MTB Grit: code <code class="chip" data-copy-text="MtbGrit" title="Click to copy">MtbGrit</code>, units <code class="chip" data-copy-text="kGrit" title="Click to copy">kGrit</code>, FIT session field <code class="chip" data-copy-text="mtb_total_grit" title="Click to copy">mtb_total_grit</code></li><li>MTB Flow: code <code class="chip" data-copy-text="MtbFlow" title="Click to copy">MtbFlow</code>, units <code class="chip" data-copy-text="flow" title="Click to copy">flow</code>, FIT session field <code class="chip" data-copy-text="mtb_flow_score" title="Click to copy">mtb_flow_score</code></li><li>MTB Jumps: code <code class="chip" data-copy-text="MtbJumps" title="Click to copy">MtbJumps</code>, units <code class="chip" data-copy-text="jumps" title="Click to copy">jumps</code>, FIT session field <code class="chip" data-copy-text="mtb_jumps" title="Click to copy">mtb_jumps</code></li></ul></li>
       <li><strong>The MTB Dynamics chart</strong>: <strong>Charts</strong> → add a custom chart → paste <a href="#s-charts-mtb_dynamics">its script</a> → save.</li>
@@ -123,26 +131,26 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
     <div class="group">MTB Dynamics</div>
     <div class="table-wrap"><table>
       <tr><th>Name</th><th>Code</th><th>Units</th><th>Source</th></tr>
-      <tr><td>MTB Grit</td><td><code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code></td><td><code class="chip" data-copy-text="grit" title="Click to copy">grit</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code> or <a href="#s-streams-mtb_grit" class="scriptref">script ↓</a><div class="note">Pick the record field, or use the script to include Garmin rides too.</div></td></tr>
-<tr><td>MTB Flow</td><td><code class="chip" data-copy-text="mtb_flow" title="Click to copy">mtb_flow</code></td><td><code class="chip" data-copy-text="m" title="Click to copy">m</code></td><td><a href="#s-streams-mtb_flow" class="scriptref">Script ↓</a> <span class='tick'>✓ Processes fit file messages</span><div class="note">Script: moves the values back by the 3 s the Karoo writes them late.</div></td></tr>
-<tr><td>MTB Braking</td><td><code class="chip" data-copy-text="mtb_brake" title="Click to copy">mtb_brake</code></td><td><code class="chip" data-copy-text="m/s2" title="Click to copy">m/s2</code></td><td><a href="#s-streams-mtb_brake" class="scriptref">Script ↓</a> <span class='tick'>✓ Processes fit file messages</span><div class="note">Script: realigned like Flow.</div></td></tr>
-<tr><td>MTB Roughness</td><td><code class="chip" data-copy-text="mtb_rough" title="Click to copy">mtb_rough</code></td><td><code class="chip" data-copy-text="g" title="Click to copy">g</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_rough" title="Click to copy">mtb_rough</code></td></tr>
-<tr><td>MTB Corner G</td><td><code class="chip" data-copy-text="mtb_lat_g" title="Click to copy">mtb_lat_g</code></td><td><code class="chip" data-copy-text="g" title="Click to copy">g</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_lat_g" title="Click to copy">mtb_lat_g</code></td></tr>
-<tr><td>MTB Jump Airtime</td><td><code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code></td><td><code class="chip" data-copy-text="s" title="Click to copy">s</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code></td></tr>
-<tr><td>MTB Jump Distance</td><td><code class="chip" data-copy-text="mtb_jump_dist" title="Click to copy">mtb_jump_dist</code></td><td><code class="chip" data-copy-text="m" title="Click to copy">m</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_jump_dist" title="Click to copy">mtb_jump_dist</code></td></tr>
-<tr><td>MTB Jump Height</td><td><code class="chip" data-copy-text="mtb_jump_height" title="Click to copy">mtb_jump_height</code></td><td><code class="chip" data-copy-text="m" title="Click to copy">m</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_jump_height" title="Click to copy">mtb_jump_height</code></td></tr>
+      <tr><td>MTB Grit</td><td><code class="chip" data-copy-text="MtbGrit" title="Click to copy">MtbGrit</code></td><td><code class="chip" data-copy-text="grit" title="Click to copy">grit</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code> or <a href="#s-streams-mtb_grit" class="scriptref">script ↓</a><div class="note">Pick the record field, or use the script to include Garmin rides too.</div></td></tr>
+<tr><td>MTB Flow</td><td><code class="chip" data-copy-text="MtbFlow" title="Click to copy">MtbFlow</code></td><td><code class="chip" data-copy-text="m" title="Click to copy">m</code></td><td><a href="#s-streams-mtb_flow" class="scriptref">Script ↓</a> <span class='tick'>✓ Processes fit file messages</span><div class="note">Script: moves the values back by the 3 s the Karoo writes them late.</div></td></tr>
+<tr><td>MTB Braking</td><td><code class="chip" data-copy-text="MtbBrake" title="Click to copy">MtbBrake</code></td><td><code class="chip" data-copy-text="m/s2" title="Click to copy">m/s2</code></td><td><a href="#s-streams-mtb_brake" class="scriptref">Script ↓</a> <span class='tick'>✓ Processes fit file messages</span><div class="note">Script: realigned like Flow.</div></td></tr>
+<tr><td>MTB Roughness</td><td><code class="chip" data-copy-text="MtbRough" title="Click to copy">MtbRough</code></td><td><code class="chip" data-copy-text="g" title="Click to copy">g</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_rough" title="Click to copy">mtb_rough</code></td></tr>
+<tr><td>MTB Corner G</td><td><code class="chip" data-copy-text="MtbLatG" title="Click to copy">MtbLatG</code></td><td><code class="chip" data-copy-text="g" title="Click to copy">g</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_lat_g" title="Click to copy">mtb_lat_g</code></td></tr>
+<tr><td>MTB Jump Airtime</td><td><code class="chip" data-copy-text="MtbJumpAir" title="Click to copy">MtbJumpAir</code></td><td><code class="chip" data-copy-text="s" title="Click to copy">s</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code></td></tr>
+<tr><td>MTB Jump Distance</td><td><code class="chip" data-copy-text="MtbJumpDist" title="Click to copy">MtbJumpDist</code></td><td><code class="chip" data-copy-text="m" title="Click to copy">m</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_jump_dist" title="Click to copy">mtb_jump_dist</code></td></tr>
+<tr><td>MTB Jump Height</td><td><code class="chip" data-copy-text="MtbJumpHeight" title="Click to copy">MtbJumpHeight</code></td><td><code class="chip" data-copy-text="m" title="Click to copy">m</code></td><td>FIT record field <code class="chip" data-copy-text="mtb_jump_height" title="Click to copy">mtb_jump_height</code></td></tr>
     </table></div>
     <div class="group">Flight Attendant / AXS <span class="muted small">(the Karoo records these itself when the parts are paired)</span></div>
     <div class="table-wrap"><table>
       <tr><th>Name</th><th>Code</th><th>Units</th><th>Source</th></tr>
-      <tr><td>FA Fork</td><td><code class="chip" data-copy-text="fa_front" title="Click to copy">fa_front</code></td><td><code class="chip" data-copy-text="state" title="Click to copy">state</code></td><td>FIT record field <code class="chip" data-copy-text="front_suspension" title="Click to copy">front_suspension</code><div class="note">Recorded by the Karoo itself: 0 Open, 1 Pedal, 2 Lock.</div></td></tr>
-<tr><td>FA Shock</td><td><code class="chip" data-copy-text="fa_rear" title="Click to copy">fa_rear</code></td><td><code class="chip" data-copy-text="state" title="Click to copy">state</code></td><td>FIT record field <code class="chip" data-copy-text="rear_suspension" title="Click to copy">rear_suspension</code></td></tr>
-<tr><td>FA Effort Zone</td><td><code class="chip" data-copy-text="fa_effort" title="Click to copy">fa_effort</code></td><td><code class="chip" data-copy-text="zone" title="Click to copy">zone</code></td><td>FIT record field <code class="chip" data-copy-text="suspension_effort_zone" title="Click to copy">suspension_effort_zone</code></td></tr>
-<tr><td>Rear Cog</td><td><code class="chip" data-copy-text="rear_cog" title="Click to copy">rear_cog</code></td><td><code class="chip" data-copy-text="T" title="Click to copy">T</code></td><td><a href="#s-streams-rear_cog" class="scriptref">Script ↓</a> <span class='tick'>✓ Processes fit file messages</span><div class="note">Script: turns the AXS shift events into the cog in use.</div></td></tr>
+      <tr><td>FA Fork</td><td><code class="chip" data-copy-text="FaFront" title="Click to copy">FaFront</code></td><td><code class="chip" data-copy-text="state" title="Click to copy">state</code></td><td>FIT record field <code class="chip" data-copy-text="front_suspension" title="Click to copy">front_suspension</code><div class="note">Recorded by the Karoo itself: 0 Open, 1 Pedal, 2 Lock.</div></td></tr>
+<tr><td>FA Shock</td><td><code class="chip" data-copy-text="FaRear" title="Click to copy">FaRear</code></td><td><code class="chip" data-copy-text="state" title="Click to copy">state</code></td><td>FIT record field <code class="chip" data-copy-text="rear_suspension" title="Click to copy">rear_suspension</code></td></tr>
+<tr><td>FA Effort Zone</td><td><code class="chip" data-copy-text="FaEffort" title="Click to copy">FaEffort</code></td><td><code class="chip" data-copy-text="zone" title="Click to copy">zone</code></td><td>FIT record field <code class="chip" data-copy-text="suspension_effort_zone" title="Click to copy">suspension_effort_zone</code></td></tr>
+<tr><td>Rear Cog</td><td><code class="chip" data-copy-text="RearCog" title="Click to copy">RearCog</code></td><td><code class="chip" data-copy-text="T" title="Click to copy">T</code></td><td><a href="#s-streams-rear_cog" class="scriptref">Script ↓</a> <span class='tick'>✓ Processes fit file messages</span><div class="note">Script: turns the AXS shift events into the cog in use.</div></td></tr>
     </table></div>
     <p class="muted small">Power, cadence and L/R balance from the power meter are standard intervals.icu streams already.</p>
-    <details class="script" id="s-streams-mtb_grit"><summary><span>MTB Grit stream (mtb_grit)</span><span class="file">streams/mtb_grit.js</span><button type="button" class="copy" data-copy="s-streams-mtb_grit-code">Copy script</button></summary><pre><code id="s-streams-mtb_grit-code">// intervals.icu custom activity stream: MTB Grit (grit points per second)
-// Settings: Code mtb_grit · Units grit · tick &quot;Processes fit file messages&quot;
+    <details class="script" id="s-streams-mtb_grit"><summary><span>MTB Grit stream (MtbGrit)</span><span class="file">streams/mtb_grit.js</span><button type="button" class="copy" data-copy="s-streams-mtb_grit-code">Copy script</button></summary><pre><code id="s-streams-mtb_grit-code">// intervals.icu custom activity stream: MTB Grit (grit points per second)
+// Settings: Code MtbGrit · Units grit · tick &quot;Processes fit file messages&quot;
 //
 // Only needed if you also ride with a Garmin: it reads the Karoo developer field mtb_grit and
 // falls back to Garmin&#x27;s native &quot;grit&quot; field. Karoo-only riders can instead create the stream
@@ -155,8 +163,8 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
   }
 }
 </code></pre></details>
-<details class="script" id="s-streams-mtb_flow"><summary><span>MTB Flow stream (mtb_flow)</span><span class="file">streams/mtb_flow.js</span><button type="button" class="copy" data-copy="s-streams-mtb_flow-code">Copy script</button></summary><pre><code id="s-streams-mtb_flow-code">// intervals.icu custom activity stream: MTB Flow (unnecessary braking, metres per second)
-// Settings: Code mtb_flow · Units m · tick &quot;Processes fit file messages&quot;
+<details class="script" id="s-streams-mtb_flow"><summary><span>MTB Flow stream (MtbFlow)</span><span class="file">streams/mtb_flow.js</span><button type="button" class="copy" data-copy="s-streams-mtb_flow-code">Copy script</button></summary><pre><code id="s-streams-mtb_flow-code">// intervals.icu custom activity stream: MTB Flow (unnecessary braking, metres per second)
+// Settings: Code MtbFlow · Units m · tick &quot;Processes fit file messages&quot;
 //
 // The Karoo writes mtb_flow a few seconds late (Flow looks ahead: braking before a tight corner
 // is fine). This script moves every value back to the second it belongs to.
@@ -175,8 +183,8 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
   }
 }
 </code></pre></details>
-<details class="script" id="s-streams-mtb_brake"><summary><span>MTB Braking stream (mtb_brake)</span><span class="file">streams/mtb_brake.js</span><button type="button" class="copy" data-copy="s-streams-mtb_brake-code">Copy script</button></summary><pre><code id="s-streams-mtb_brake-code">// intervals.icu custom activity stream: MTB Braking (deceleration, m/s²)
-// Settings: Code mtb_brake · Units m/s2 · tick &quot;Processes fit file messages&quot;
+<details class="script" id="s-streams-mtb_brake"><summary><span>MTB Braking stream (MtbBrake)</span><span class="file">streams/mtb_brake.js</span><button type="button" class="copy" data-copy="s-streams-mtb_brake-code">Copy script</button></summary><pre><code id="s-streams-mtb_brake-code">// intervals.icu custom activity stream: MTB Braking (deceleration, m/s²)
+// Settings: Code MtbBrake · Units m/s2 · tick &quot;Processes fit file messages&quot;
 //
 // Like mtb_flow, the Karoo writes mtb_brake mtb_flow_lag seconds late; realign it here.
 {
@@ -189,8 +197,8 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
   }
 }
 </code></pre></details>
-<details class="script" id="s-streams-rear_cog"><summary><span>Rear Cog stream (rear_cog)</span><span class="file">streams/rear_cog.js</span><button type="button" class="copy" data-copy="s-streams-rear_cog-code">Copy script</button></summary><pre><code id="s-streams-rear_cog-code">// intervals.icu custom activity stream: Rear cog (teeth) from SRAM AXS shifts
-// Settings: Code rear_cog · Units T · tick &quot;Processes fit file messages&quot;
+<details class="script" id="s-streams-rear_cog"><summary><span>Rear Cog stream (RearCog)</span><span class="file">streams/rear_cog.js</span><button type="button" class="copy" data-copy="s-streams-rear_cog-code">Copy script</button></summary><pre><code id="s-streams-rear_cog-code">// intervals.icu custom activity stream: Rear cog (teeth) from SRAM AXS shifts
+// Settings: Code RearCog · Units T · tick &quot;Processes fit file messages&quot;
 //
 // The Karoo writes one FIT event per rear shift (rear_gear = teeth). This turns them into a
 // second-by-second &quot;cog in use&quot; stream.
@@ -282,7 +290,9 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
   let s = icu.fit.session ? icu.fit.session[0] : null
   let v = s &amp;&amp; s.mtb_jumps ? s.mtb_jumps.value : null
   if (v == null) {
-    v = s &amp;&amp; s.jump_count ? s.jump_count.value : (icu.fit.jump ? icu.fit.jump.length : null)
+    // Empty rather than 0 for rides without MTB Dynamics: intervals.icu gives every ride a jump list.
+    if (s &amp;&amp; s.jump_count) v = s.jump_count.value
+    else if (icu.fit.jump &amp;&amp; icu.fit.jump.length) v = icu.fit.jump.length
   }
   v
 }
@@ -456,36 +466,36 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
     <div class="group">MTB Dynamics</div>
     <div class="table-wrap"><table>
       <tr><th>Name</th><th>Code</th><th>Units</th><th>Needs stream</th><th>Script</th></tr>
-      <tr><td>Grit</td><td><code class="chip" data-copy-text="IntMtbGrit" title="Click to copy">IntMtbGrit</code></td><td><code class="chip" data-copy-text="kGrit" title="Click to copy">kGrit</code></td><td><code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code></td><td><a href="#s-interval-fields-interval_grit" class="scriptref">script ↓</a></td></tr>
-<tr><td>Flow</td><td><code class="chip" data-copy-text="IntMtbFlow" title="Click to copy">IntMtbFlow</code></td><td><code class="chip" data-copy-text="flow" title="Click to copy">flow</code></td><td><code class="chip" data-copy-text="mtb_flow" title="Click to copy">mtb_flow</code></td><td><a href="#s-interval-fields-interval_flow" class="scriptref">script ↓</a></td></tr>
-<tr><td>Jumps</td><td><code class="chip" data-copy-text="IntMtbJumps" title="Click to copy">IntMtbJumps</code></td><td><code class="chip" data-copy-text="jumps" title="Click to copy">jumps</code></td><td><code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code></td><td><a href="#s-interval-fields-interval_jumps" class="scriptref">script ↓</a></td></tr>
-<tr><td>Max airtime</td><td><code class="chip" data-copy-text="IntMtbMaxAir" title="Click to copy">IntMtbMaxAir</code></td><td><code class="chip" data-copy-text="s" title="Click to copy">s</code></td><td><code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code></td><td><a href="#s-interval-fields-interval_max_air" class="scriptref">script ↓</a></td></tr>
-<tr><td>Braking</td><td><code class="chip" data-copy-text="IntMtbBraking" title="Click to copy">IntMtbBraking</code></td><td><code class="chip" data-copy-text="%" title="Click to copy">%</code></td><td><code class="chip" data-copy-text="mtb_brake" title="Click to copy">mtb_brake</code></td><td><a href="#s-interval-fields-interval_braking" class="scriptref">script ↓</a></td></tr>
-<tr><td>Roughness</td><td><code class="chip" data-copy-text="IntMtbRough" title="Click to copy">IntMtbRough</code></td><td><code class="chip" data-copy-text="g" title="Click to copy">g</code></td><td><code class="chip" data-copy-text="mtb_rough" title="Click to copy">mtb_rough</code></td><td><a href="#s-interval-fields-interval_roughness" class="scriptref">script ↓</a></td></tr>
+      <tr><td>Grit</td><td><code class="chip" data-copy-text="IntMtbGrit" title="Click to copy">IntMtbGrit</code></td><td><code class="chip" data-copy-text="kGrit" title="Click to copy">kGrit</code></td><td><code class="chip" data-copy-text="MtbGrit" title="Click to copy">MtbGrit</code></td><td><a href="#s-interval-fields-interval_grit" class="scriptref">script ↓</a></td></tr>
+<tr><td>Flow</td><td><code class="chip" data-copy-text="IntMtbFlow" title="Click to copy">IntMtbFlow</code></td><td><code class="chip" data-copy-text="flow" title="Click to copy">flow</code></td><td><code class="chip" data-copy-text="MtbFlow" title="Click to copy">MtbFlow</code></td><td><a href="#s-interval-fields-interval_flow" class="scriptref">script ↓</a></td></tr>
+<tr><td>Jumps</td><td><code class="chip" data-copy-text="IntMtbJumps" title="Click to copy">IntMtbJumps</code></td><td><code class="chip" data-copy-text="jumps" title="Click to copy">jumps</code></td><td><code class="chip" data-copy-text="MtbJumpAir" title="Click to copy">MtbJumpAir</code></td><td><a href="#s-interval-fields-interval_jumps" class="scriptref">script ↓</a></td></tr>
+<tr><td>Max airtime</td><td><code class="chip" data-copy-text="IntMtbMaxAir" title="Click to copy">IntMtbMaxAir</code></td><td><code class="chip" data-copy-text="s" title="Click to copy">s</code></td><td><code class="chip" data-copy-text="MtbJumpAir" title="Click to copy">MtbJumpAir</code></td><td><a href="#s-interval-fields-interval_max_air" class="scriptref">script ↓</a></td></tr>
+<tr><td>Braking</td><td><code class="chip" data-copy-text="IntMtbBraking" title="Click to copy">IntMtbBraking</code></td><td><code class="chip" data-copy-text="%" title="Click to copy">%</code></td><td><code class="chip" data-copy-text="MtbBrake" title="Click to copy">MtbBrake</code></td><td><a href="#s-interval-fields-interval_braking" class="scriptref">script ↓</a></td></tr>
+<tr><td>Roughness</td><td><code class="chip" data-copy-text="IntMtbRough" title="Click to copy">IntMtbRough</code></td><td><code class="chip" data-copy-text="g" title="Click to copy">g</code></td><td><code class="chip" data-copy-text="MtbRough" title="Click to copy">MtbRough</code></td><td><a href="#s-interval-fields-interval_roughness" class="scriptref">script ↓</a></td></tr>
     </table></div>
     <div class="group">Flight Attendant / AXS</div>
     <div class="table-wrap"><table>
       <tr><th>Name</th><th>Code</th><th>Units</th><th>Needs stream</th><th>Script</th></tr>
-      <tr><td>FA Open</td><td><code class="chip" data-copy-text="IntFaOpen" title="Click to copy">IntFaOpen</code></td><td><code class="chip" data-copy-text="%" title="Click to copy">%</code></td><td><code class="chip" data-copy-text="fa_front" title="Click to copy">fa_front</code></td><td><a href="#s-interval-fields-interval_fa_open" class="scriptref">script ↓</a></td></tr>
-<tr><td>FA Lock</td><td><code class="chip" data-copy-text="IntFaLock" title="Click to copy">IntFaLock</code></td><td><code class="chip" data-copy-text="%" title="Click to copy">%</code></td><td><code class="chip" data-copy-text="fa_front" title="Click to copy">fa_front</code></td><td><a href="#s-interval-fields-interval_fa_lock" class="scriptref">script ↓</a></td></tr>
-<tr><td>Shifts</td><td><code class="chip" data-copy-text="IntShifts" title="Click to copy">IntShifts</code></td><td><code class="chip" data-copy-text="shifts" title="Click to copy">shifts</code></td><td><code class="chip" data-copy-text="rear_cog" title="Click to copy">rear_cog</code></td><td><a href="#s-interval-fields-interval_shifts" class="scriptref">script ↓</a></td></tr>
-<tr><td>Main cog</td><td><code class="chip" data-copy-text="IntCog" title="Click to copy">IntCog</code></td><td><code class="chip" data-copy-text="T" title="Click to copy">T</code></td><td><code class="chip" data-copy-text="rear_cog" title="Click to copy">rear_cog</code></td><td><a href="#s-interval-fields-interval_cog" class="scriptref">script ↓</a></td></tr>
+      <tr><td>FA Open</td><td><code class="chip" data-copy-text="IntFaOpen" title="Click to copy">IntFaOpen</code></td><td><code class="chip" data-copy-text="%" title="Click to copy">%</code></td><td><code class="chip" data-copy-text="FaFront" title="Click to copy">FaFront</code></td><td><a href="#s-interval-fields-interval_fa_open" class="scriptref">script ↓</a></td></tr>
+<tr><td>FA Lock</td><td><code class="chip" data-copy-text="IntFaLock" title="Click to copy">IntFaLock</code></td><td><code class="chip" data-copy-text="%" title="Click to copy">%</code></td><td><code class="chip" data-copy-text="FaFront" title="Click to copy">FaFront</code></td><td><a href="#s-interval-fields-interval_fa_lock" class="scriptref">script ↓</a></td></tr>
+<tr><td>Shifts</td><td><code class="chip" data-copy-text="IntShifts" title="Click to copy">IntShifts</code></td><td><code class="chip" data-copy-text="shifts" title="Click to copy">shifts</code></td><td><code class="chip" data-copy-text="RearCog" title="Click to copy">RearCog</code></td><td><a href="#s-interval-fields-interval_shifts" class="scriptref">script ↓</a></td></tr>
+<tr><td>Main cog</td><td><code class="chip" data-copy-text="IntCog" title="Click to copy">IntCog</code></td><td><code class="chip" data-copy-text="T" title="Click to copy">T</code></td><td><code class="chip" data-copy-text="RearCog" title="Click to copy">RearCog</code></td><td><a href="#s-interval-fields-interval_cog" class="scriptref">script ↓</a></td></tr>
     </table></div>
     <details class="script" id="s-interval-fields-interval_grit"><summary><span>Grit interval field (IntMtbGrit)</span><span class="file">interval-fields/interval_grit.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_grit-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_grit-code">// intervals.icu custom interval field: Interval Grit (difficulty of the selection / lap)
-// Settings: Code IntMtbGrit · Units kGrit · needs the custom stream mtb_grit
+// Settings: Code IntMtbGrit · Units kGrit · needs the custom stream MtbGrit
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const grit = stream(&#x27;mtb_grit&#x27;)
+  const grit = stream(&#x27;MtbGrit&#x27;)
   let sum = 0
   if (grit) for (let i = interval.start_index; i &lt; interval.end_index; i++) sum += grit[i] || 0
   grit ? sum / 1000 : null
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_flow"><summary><span>Flow interval field (IntMtbFlow)</span><span class="file">interval-fields/interval_flow.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_flow-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_flow-code">// intervals.icu custom interval field: Interval Flow (unnecessary braking per 100 m, lower = smoother)
-// Settings: Code IntMtbFlow · Units flow · needs the custom stream mtb_flow
+// Settings: Code IntMtbFlow · Units flow · needs the custom stream MtbFlow
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const flow = stream(&#x27;mtb_flow&#x27;), dist = icu.streams.distance, vel = stream(&#x27;velocity_smooth&#x27;)
+  const flow = stream(&#x27;MtbFlow&#x27;), dist = icu.streams.distance, vel = stream(&#x27;velocity_smooth&#x27;)
   let f = 0, d = 0
   if (flow &amp;&amp; dist) {
     for (let i = Math.max(1, interval.start_index); i &lt; interval.end_index; i++) {
@@ -498,30 +508,30 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_jumps"><summary><span>Jumps interval field (IntMtbJumps)</span><span class="file">interval-fields/interval_jumps.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_jumps-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_jumps-code">// intervals.icu custom interval field: Interval Jumps
-// Settings: Code IntMtbJumps · Units jumps · needs the custom stream mtb_jump_air
+// Settings: Code IntMtbJumps · Units jumps · needs the custom stream MtbJumpAir
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const air = stream(&#x27;mtb_jump_air&#x27;)
+  const air = stream(&#x27;MtbJumpAir&#x27;)
   let n = 0
   if (air) for (let i = interval.start_index; i &lt; interval.end_index; i++) if ((air[i] || 0) &gt; 0) n++
   air ? n : null
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_max_air"><summary><span>Max airtime interval field (IntMtbMaxAir)</span><span class="file">interval-fields/interval_max_air.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_max_air-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_max_air-code">// intervals.icu custom interval field: Interval longest airtime
-// Settings: Code IntMtbMaxAir · Units s · needs the custom stream mtb_jump_air
+// Settings: Code IntMtbMaxAir · Units s · needs the custom stream MtbJumpAir
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const air = stream(&#x27;mtb_jump_air&#x27;)
+  const air = stream(&#x27;MtbJumpAir&#x27;)
   let best = 0
   if (air) for (let i = interval.start_index; i &lt; interval.end_index; i++) best = Math.max(best, air[i] || 0)
   air ? best : null
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_braking"><summary><span>Braking interval field (IntMtbBraking)</span><span class="file">interval-fields/interval_braking.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_braking-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_braking-code">// intervals.icu custom interval field: Interval braking (% of moving time slowing down hard)
-// Settings: Code IntMtbBraking · Units % · needs the custom stream mtb_brake
+// Settings: Code IntMtbBraking · Units % · needs the custom stream MtbBrake
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const brake = stream(&#x27;mtb_brake&#x27;), vel = stream(&#x27;velocity_smooth&#x27;)
+  const brake = stream(&#x27;MtbBrake&#x27;), vel = stream(&#x27;velocity_smooth&#x27;)
   let moving = 0, braking = 0
   if (brake) {
     for (let i = interval.start_index; i &lt; interval.end_index; i++) {
@@ -534,40 +544,40 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_roughness"><summary><span>Roughness interval field (IntMtbRough)</span><span class="file">interval-fields/interval_roughness.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_roughness-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_roughness-code">// intervals.icu custom interval field: Interval trail roughness (average vibration, g)
-// Settings: Code IntMtbRough · Units g · needs the custom stream mtb_rough
+// Settings: Code IntMtbRough · Units g · needs the custom stream MtbRough
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const rough = stream(&#x27;mtb_rough&#x27;)
+  const rough = stream(&#x27;MtbRough&#x27;)
   let sum = 0, n = 0
   if (rough) for (let i = interval.start_index; i &lt; interval.end_index; i++) if (rough[i] != null &amp;&amp; rough[i] &gt; 0) { sum += rough[i]; n++ }
   n ? sum / n : null
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_fa_open"><summary><span>FA Open interval field (IntFaOpen)</span><span class="file">interval-fields/interval_fa_open.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_fa_open-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_fa_open-code">// intervals.icu custom interval field: Flight Attendant Open (% of the selection)
-// Settings: Code IntFaOpen · Units % · needs the custom stream fa_front (record field front_suspension)
+// Settings: Code IntFaOpen · Units % · needs the custom stream FaFront (record field front_suspension)
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const fa = stream(&#x27;fa_front&#x27;)
+  const fa = stream(&#x27;FaFront&#x27;)
   let open = 0, n = 0
   if (fa) for (let i = interval.start_index; i &lt; interval.end_index; i++) if (fa[i] != null) { n++; if (fa[i] === 0) open++ }
   n ? 100 * open / n : null
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_fa_lock"><summary><span>FA Lock interval field (IntFaLock)</span><span class="file">interval-fields/interval_fa_lock.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_fa_lock-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_fa_lock-code">// intervals.icu custom interval field: Flight Attendant Lock (% of the selection)
-// Settings: Code IntFaLock · Units % · needs the custom stream fa_front (record field front_suspension)
+// Settings: Code IntFaLock · Units % · needs the custom stream FaFront (record field front_suspension)
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const fa = stream(&#x27;fa_front&#x27;)
+  const fa = stream(&#x27;FaFront&#x27;)
   let lock = 0, n = 0
   if (fa) for (let i = interval.start_index; i &lt; interval.end_index; i++) if (fa[i] != null) { n++; if (fa[i] === 2) lock++ }
   n ? 100 * lock / n : null
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_shifts"><summary><span>Shifts interval field (IntShifts)</span><span class="file">interval-fields/interval_shifts.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_shifts-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_shifts-code">// intervals.icu custom interval field: rear shifts in the selection
-// Settings: Code IntShifts · Units shifts · needs the custom stream rear_cog
+// Settings: Code IntShifts · Units shifts · needs the custom stream RearCog
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const cog = stream(&#x27;rear_cog&#x27;)
+  const cog = stream(&#x27;RearCog&#x27;)
   let shifts = 0, prev = null
   if (cog) for (let i = interval.start_index; i &lt; interval.end_index; i++) {
     if (cog[i] == null) continue
@@ -578,10 +588,10 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
 }
 </code></pre></details>
 <details class="script" id="s-interval-fields-interval_cog"><summary><span>Main cog interval field (IntCog)</span><span class="file">interval-fields/interval_cog.js</span><button type="button" class="copy" data-copy="s-interval-fields-interval_cog-code">Copy script</button></summary><pre><code id="s-interval-fields-interval_cog-code">// intervals.icu custom interval field: most used rear cog in the selection (teeth)
-// Settings: Code IntCog · Units T · needs the custom stream rear_cog
+// Settings: Code IntCog · Units T · needs the custom stream RearCog
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
-  const cog = stream(&#x27;rear_cog&#x27;)
+  const cog = stream(&#x27;RearCog&#x27;)
   const seconds = {}
   if (cog) for (let i = interval.start_index; i &lt; interval.end_index; i++) if (cog[i] != null) seconds[cog[i]] = (seconds[cog[i]] || 0) + 1
   let best = null
@@ -598,16 +608,16 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
     <p class="lead">On the activity page click <strong>Charts</strong>, add a custom chart, paste the script and save
       (<a href="https://forum.intervals.icu/t/custom-activity-charts/28627">forum post</a>). Charts are stored per sport, so they show on every ride of that sport.</p>
     <div class="grid charts">
-      <div class="card"><h3>MTB Dynamics</h3><p>Altitude profile with Grit (60 s) and Flow (60 s) on top and every jump marked.</p><p class="needs">Needs the streams <code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code>, <code class="chip" data-copy-text="mtb_flow" title="Click to copy">mtb_flow</code>, <code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code></p><details class="script" id="s-charts-mtb_dynamics"><summary><span>Chart script</span><span class="file">charts/mtb_dynamics.js</span><button type="button" class="copy" data-copy="s-charts-mtb_dynamics-code">Copy script</button></summary><pre><code id="s-charts-mtb_dynamics-code">// intervals.icu custom activity chart: MTB Dynamics
+      <div class="card"><h3>MTB Dynamics</h3><p>Altitude profile with Grit (60 s) and Flow (60 s) on top and every jump marked.</p><p class="needs">Needs the streams <code class="chip" data-copy-text="MtbGrit" title="Click to copy">MtbGrit</code>, <code class="chip" data-copy-text="MtbFlow" title="Click to copy">MtbFlow</code>, <code class="chip" data-copy-text="MtbJumpAir" title="Click to copy">MtbJumpAir</code></p><details class="script" id="s-charts-mtb_dynamics"><summary><span>Chart script</span><span class="file">charts/mtb_dynamics.js</span><button type="button" class="copy" data-copy="s-charts-mtb_dynamics-code">Copy script</button></summary><pre><code id="s-charts-mtb_dynamics-code">// intervals.icu custom activity chart: MTB Dynamics
 // Altitude profile with Grit (60 s) and Flow (60 s) on top and every jump marked.
-// Needs the custom streams mtb_grit, mtb_flow and mtb_jump_air (see intervals-icu/README.md).
+// Needs the custom streams MtbGrit, MtbFlow and MtbJumpAir (see intervals-icu/README.md).
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
   const imperial = !!(icu.athlete &amp;&amp; icu.athlete.measurement_preference === &#x27;feet&#x27;)
   const distF = imperial ? 1 / 1609.344 : 1 / 1000, altF = imperial ? 3.28084 : 1
   const dist = stream(&#x27;distance&#x27;) || [], alt = stream(&#x27;altitude&#x27;) || stream(&#x27;fixed_altitude&#x27;) || []
   const vel = stream(&#x27;velocity_smooth&#x27;) || []
-  const grit = stream(&#x27;mtb_grit&#x27;) || [], flow = stream(&#x27;mtb_flow&#x27;) || [], air = stream(&#x27;mtb_jump_air&#x27;) || []
+  const grit = stream(&#x27;MtbGrit&#x27;) || [], flow = stream(&#x27;MtbFlow&#x27;) || [], air = stream(&#x27;MtbJumpAir&#x27;) || []
   const n = dist.length
   const W = 60
   const x = [], altY = [], grit60 = [], flow60 = []
@@ -650,14 +660,14 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
   chart = { data, layout }
 }
 </code></pre></details></div>
-<div class="card"><h3>MTB Jumps</h3><p>One bar per jump: airtime, coloured by height; hover shows distance and speed.</p><p class="needs">Needs the streams <code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code>, <code class="chip" data-copy-text="mtb_jump_dist" title="Click to copy">mtb_jump_dist</code>, <code class="chip" data-copy-text="mtb_jump_height" title="Click to copy">mtb_jump_height</code></p><details class="script" id="s-charts-mtb_jumps"><summary><span>Chart script</span><span class="file">charts/mtb_jumps.js</span><button type="button" class="copy" data-copy="s-charts-mtb_jumps-code">Copy script</button></summary><pre><code id="s-charts-mtb_jumps-code">// intervals.icu custom activity chart: MTB Jumps
+<div class="card"><h3>MTB Jumps</h3><p>One bar per jump: airtime, coloured by height; hover shows distance and speed.</p><p class="needs">Needs the streams <code class="chip" data-copy-text="MtbJumpAir" title="Click to copy">MtbJumpAir</code>, <code class="chip" data-copy-text="MtbJumpDist" title="Click to copy">MtbJumpDist</code>, <code class="chip" data-copy-text="MtbJumpHeight" title="Click to copy">MtbJumpHeight</code></p><details class="script" id="s-charts-mtb_jumps"><summary><span>Chart script</span><span class="file">charts/mtb_jumps.js</span><button type="button" class="copy" data-copy="s-charts-mtb_jumps-code">Copy script</button></summary><pre><code id="s-charts-mtb_jumps-code">// intervals.icu custom activity chart: MTB Jumps
 // One bar per jump: airtime, coloured by estimated height; hover shows distance and speed.
-// Needs the custom streams mtb_jump_air, mtb_jump_dist and mtb_jump_height.
+// Needs the custom streams MtbJumpAir, MtbJumpDist and MtbJumpHeight.
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
   const imperial = !!(icu.athlete &amp;&amp; icu.athlete.measurement_preference === &#x27;feet&#x27;)
   const lenF = imperial ? 3.28084 : 1, lenU = imperial ? &#x27;ft&#x27; : &#x27;m&#x27;
-  const air = stream(&#x27;mtb_jump_air&#x27;) || [], dist = stream(&#x27;mtb_jump_dist&#x27;) || [], height = stream(&#x27;mtb_jump_height&#x27;) || []
+  const air = stream(&#x27;MtbJumpAir&#x27;) || [], dist = stream(&#x27;MtbJumpDist&#x27;) || [], height = stream(&#x27;MtbJumpHeight&#x27;) || []
   const time = stream(&#x27;time&#x27;) || []
   const x = [], y = [], color = [], text = []
   for (let i = 0; i &lt; air.length; i++) {
@@ -683,17 +693,17 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
   chart = { data, layout }
 }
 </code></pre></details></div>
-<div class="card"><h3>MTB Trail Segments</h3><p>Climbs, descents and flats with Grit, Flow, braking and jumps for each.</p><p class="needs">Needs the streams <code class="chip" data-copy-text="mtb_grit" title="Click to copy">mtb_grit</code>, <code class="chip" data-copy-text="mtb_flow" title="Click to copy">mtb_flow</code>, <code class="chip" data-copy-text="mtb_brake" title="Click to copy">mtb_brake</code>, <code class="chip" data-copy-text="mtb_jump_air" title="Click to copy">mtb_jump_air</code></p><details class="script" id="s-charts-mtb_segments"><summary><span>Chart script</span><span class="file">charts/mtb_segments.js</span><button type="button" class="copy" data-copy="s-charts-mtb_segments-code">Copy script</button></summary><pre><code id="s-charts-mtb_segments-code">// intervals.icu custom activity chart: MTB Trail Segments
+<div class="card"><h3>MTB Trail Segments</h3><p>Climbs, descents and flats with Grit, Flow, braking and jumps for each.</p><p class="needs">Needs the streams <code class="chip" data-copy-text="MtbGrit" title="Click to copy">MtbGrit</code>, <code class="chip" data-copy-text="MtbFlow" title="Click to copy">MtbFlow</code>, <code class="chip" data-copy-text="MtbBrake" title="Click to copy">MtbBrake</code>, <code class="chip" data-copy-text="MtbJumpAir" title="Click to copy">MtbJumpAir</code></p><details class="script" id="s-charts-mtb_segments"><summary><span>Chart script</span><span class="file">charts/mtb_segments.js</span><button type="button" class="copy" data-copy="s-charts-mtb_segments-code">Copy script</button></summary><pre><code id="s-charts-mtb_segments-code">// intervals.icu custom activity chart: MTB Trail Segments
 // Splits the ride into climbs, descents and flat sections (same rules as the Karoo app: 15 m
 // elevation reversals, long flat stretches cut out) and shows Grit, Flow, braking and jumps for each.
-// Needs the custom streams mtb_grit, mtb_flow, mtb_brake and mtb_jump_air.
+// Needs the custom streams MtbGrit, MtbFlow, MtbBrake and MtbJumpAir.
 {
   const H = 15
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
   const imperial = !!(icu.athlete &amp;&amp; icu.athlete.measurement_preference === &#x27;feet&#x27;)
   const dist = stream(&#x27;distance&#x27;) || [], rawAlt = stream(&#x27;altitude&#x27;) || stream(&#x27;fixed_altitude&#x27;) || []
   const time = stream(&#x27;time&#x27;) || [], vel = stream(&#x27;velocity_smooth&#x27;) || []
-  const grit = stream(&#x27;mtb_grit&#x27;) || [], flow = stream(&#x27;mtb_flow&#x27;) || [], brake = stream(&#x27;mtb_brake&#x27;) || [], air = stream(&#x27;mtb_jump_air&#x27;) || []
+  const grit = stream(&#x27;MtbGrit&#x27;) || [], flow = stream(&#x27;MtbFlow&#x27;) || [], brake = stream(&#x27;MtbBrake&#x27;) || [], air = stream(&#x27;MtbJumpAir&#x27;) || []
   const n = dist.length
   // Smoothed altitude (±5 samples), gaps filled.
   const filled = []
@@ -782,22 +792,25 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
   chart = { data, layout }
 }
 </code></pre></details></div>
-<div class="card"><h3>Suspension &amp; gears <span class=tag>bike</span></h3><p>Flight Attendant state as a coloured band with the rear cog on top, and minutes per cog by terrain.</p><p class="needs">Needs the streams <code class="chip" data-copy-text="fa_front" title="Click to copy">fa_front</code>, <code class="chip" data-copy-text="rear_cog" title="Click to copy">rear_cog</code></p><details class="script" id="s-charts-mtb_bike"><summary><span>Chart script</span><span class="file">charts/mtb_bike.js</span><button type="button" class="copy" data-copy="s-charts-mtb_bike-code">Copy script</button></summary><pre><code id="s-charts-mtb_bike-code">// intervals.icu custom activity chart: Suspension &amp; gears
+<div class="card"><h3>Suspension &amp; gears <span class=tag>bike</span></h3><p>Flight Attendant state as a coloured band with the rear cog on top, and minutes per cog by terrain.</p><p class="needs">Needs the streams <code class="chip" data-copy-text="FaFront" title="Click to copy">FaFront</code>, <code class="chip" data-copy-text="RearCog" title="Click to copy">RearCog</code>. Set the chart height to <code class="chip" data-copy-text="600px" title="Click to copy">600px</code>.</p><details class="script" id="s-charts-mtb_bike"><summary><span>Chart script</span><span class="file">charts/mtb_bike.js</span><button type="button" class="copy" data-copy="s-charts-mtb_bike-code">Copy script</button></summary><pre><code id="s-charts-mtb_bike-code">// intervals.icu custom activity chart: Suspension &amp; gears
 // Flight Attendant state (Open / Pedal / Lock) as a coloured band with the rear cog in use on top,
 // plus minutes per cog split into climbing / flat / descending.
-// Needs the custom streams fa_front (record field front_suspension) and rear_cog (streams/rear_cog.js).
+// Needs the custom streams FaFront (record field front_suspension) and RearCog (streams/rear_cog.js).
 {
   const stream = code =&gt; { try { const s = icu.streams.get(code); if (s &amp;&amp; s.data) return s.data } catch (e) {} return null }
   const imperial = !!(icu.athlete &amp;&amp; icu.athlete.measurement_preference === &#x27;feet&#x27;)
   const distF = imperial ? 1 / 1609.344 : 1 / 1000
-  const dist = stream(&#x27;distance&#x27;) || [], fa = stream(&#x27;fa_front&#x27;) || [], cog = stream(&#x27;rear_cog&#x27;) || []
+  const dist = stream(&#x27;distance&#x27;) || [], fa = stream(&#x27;FaFront&#x27;) || [], cog = stream(&#x27;RearCog&#x27;) || []
   const grade = stream(&#x27;grade_smooth&#x27;) || [], vel = stream(&#x27;velocity_smooth&#x27;) || []
   const x = dist.map(d =&gt; (d || 0) * distF)
   const names = [&#x27;Open&#x27;, &#x27;Pedal&#x27;, &#x27;Lock&#x27;], colors = [&#x27;#2e7d32&#x27;, &#x27;#f9a825&#x27;, &#x27;#c62828&#x27;]
   const data = []
+  // Each band bar reaches to the next sample: Plotly would otherwise size every bar by the smallest
+  // gap (stops), leaving thin stripes instead of a band.
+  const dx = x.map((v, i) =&gt; Math.max((i + 1 &lt; x.length ? x[i + 1] : v) - v, 0))
   for (let code = 0; code &lt; 3; code++) {
     data.push({ x: x, y: fa.map(v =&gt; (v === code ? 1 : null)), type: &#x27;bar&#x27;, name: &#x27;FA &#x27; + names[code],
-      marker: { color: colors[code] }, hoverinfo: &#x27;name&#x27;, xaxis: &#x27;x&#x27;, yaxis: &#x27;y&#x27; })
+      width: dx, offset: 0, marker: { color: colors[code], line: { width: 0 } }, hoverinfo: &#x27;name&#x27;, xaxis: &#x27;x&#x27;, yaxis: &#x27;y&#x27; })
   }
   data.push({ x: x, y: cog.map(v =&gt; (v == null ? null : v)), name: &#x27;Rear cog (T)&#x27;, type: &#x27;scatter&#x27;,
     line: { shape: &#x27;hv&#x27;, color: &#x27;#37474f&#x27;, width: 1.5 }, xaxis: &#x27;x&#x27;, yaxis: &#x27;y2&#x27; })
@@ -819,15 +832,16 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
       }),
     })
   }
+  // Two panels by explicit domains: a Plotly grid would put the cog axis (y2, overlaying y) in the
+  // second row and leave the minutes axis (y3) spanning the whole chart.
   const layout = {
     title: { text: &#x27;Suspension &amp; gears&#x27; },
     barmode: &#x27;stack&#x27;, bargap: 0,
-    grid: { rows: 2, columns: 1, pattern: &#x27;independent&#x27;, roworder: &#x27;top to bottom&#x27; },
-    xaxis: { title: { text: imperial ? &#x27;mi&#x27; : &#x27;km&#x27; } },
-    yaxis: { visible: false, range: [0, 1] },
+    xaxis: { title: { text: imperial ? &#x27;mi&#x27; : &#x27;km&#x27; }, anchor: &#x27;y&#x27; },
+    yaxis: { visible: false, range: [0, 1], domain: [0.58, 1] },
     yaxis2: { overlaying: &#x27;y&#x27;, side: &#x27;right&#x27;, autorange: &#x27;reversed&#x27;, title: { text: &#x27;cog (T)&#x27; } },
-    xaxis2: { title: { text: &#x27;Rear cog&#x27; } },
-    yaxis3: { title: { text: &#x27;minutes&#x27; } },
+    xaxis2: { title: { text: &#x27;Rear cog&#x27; }, anchor: &#x27;y3&#x27;, type: &#x27;category&#x27; },
+    yaxis3: { title: { text: &#x27;minutes&#x27; }, domain: [0, 0.4], anchor: &#x27;x2&#x27; },
     legend: { orientation: &#x27;h&#x27;, y: 1.15 },
     margin: { t: 60, l: 50, r: 50, b: 40 },
     height: 600,
@@ -846,6 +860,10 @@ button.copy.copied { background: var(--green); border-color: var(--green); }
     <ul class="check">
       <li>One ride: <strong>Actions → Reprocess File</strong>. This re-reads the FIT file; <em>Re-analyse</em> only recomputes from data already imported.</li>
       <li>Many rides: <strong>Calendar</strong> → switch to the activity list → tick the rides → edit them and reprocess / re-analyse in one go.</li>
+      <li>Or <code>python3 tools/icu_setup.py --no-items --reprocess 365 --snippet reprocess.js</code>: lists the rides of the last year whose
+        FIT file has MTB Dynamics or Flight Attendant / AXS data. intervals.icu only reprocesses files from its website, so paste
+        <code>reprocess.js</code> into the browser console of a logged-in intervals.icu tab: it sends the website's own Reprocess File
+        request for each of those rides, keeping intervals and manually entered field values.</li>
     </ul>
   </div>
 </section>

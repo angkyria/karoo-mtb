@@ -130,10 +130,11 @@ test('mtb_grit stream reads the developer field', () => {
   assert.equal(data[10], 3)
   gritStream = Array.from(data, v => v ?? 0)
 })
+// Custom streams by their intervals.icu code (CamelCase, unlike the FIT field names).
 const custom = {
-  mtb_grit: gritStream, mtb_flow: flowStream, mtb_brake: brakeStream,
-  mtb_jump_air: ride.map(r => r.air), mtb_jump_dist: ride.map(r => r.air * r.v), mtb_jump_height: ride.map(r => r.air * r.air * 9.81 / 8),
-  mtb_rough: ride.map(r => r.rough),
+  MtbGrit: gritStream, MtbFlow: flowStream, MtbBrake: brakeStream,
+  MtbJumpAir: ride.map(r => r.air), MtbJumpDist: ride.map(r => r.air * r.v), MtbJumpHeight: ride.map(r => r.air * r.air * 9.81 / 8),
+  MtbRough: ride.map(r => r.rough),
 }
 
 // ---- activity fields ----
@@ -155,6 +156,13 @@ test('activity fields fall back to Garmin native MTB Dynamics', () => {
   assert.equal(run('activity-fields/mtb_max_air.js', { icu }), 0.75)
   assert.equal(run('activity-fields/mtb_total_air.js', { icu }), 1.15)
   assert.equal(run('activity-fields/mtb_score.js', { icu }), null)
+})
+test('MTB activity fields stay empty on rides without MTB data', () => {
+  const icu = icuWith({ fitSession: { total_distance: f(30000) }, fitJumps: [] })
+  for (const file of ['mtb_grit.js', 'mtb_flow.js', 'mtb_jumps.js', 'mtb_max_air.js', 'mtb_total_air.js', 'mtb_score.js',
+    'mtb_descent_braking.js', 'mtb_corners.js', 'mtb_max_corner_g.js']) {
+    assert.equal(run(`activity-fields/${file}`, { icu }), null, file)
+  }
 })
 
 // ---- interval fields ----
@@ -236,7 +244,7 @@ test('SRAM activity fields prefer the Karoo session values', () => {
   assert.equal(run('activity-fields/mtb_desc_pedal.js', { icu }), 63)
 })
 test('SRAM interval fields', () => {
-  const icu = icuWith({ customStreams: { ...custom, fa_front: ride.map(r => r.fa), rear_cog: cogStream } })
+  const icu = icuWith({ customStreams: { ...custom, FaFront: ride.map(r => r.fa), RearCog: cogStream } })
   const descent = { start_index: 600, end_index: 960 }
   assert.ok(Math.abs(run('interval-fields/interval_fa_open.js', { icu, interval: descent }) - 100 * 350 / 360) < 1e-9)
   assert.ok(Math.abs(run('interval-fields/interval_fa_lock.js', { icu, interval: descent }) - 100 * 10 / 360) < 1e-9)
@@ -244,13 +252,23 @@ test('SRAM interval fields', () => {
   assert.equal(run('interval-fields/interval_cog.js', { icu, interval: descent }), 18)
 })
 test('Suspension & gears chart', () => {
-  const sandbox = { icu: icuWith({ customStreams: { ...custom, fa_front: ride.map(r => r.fa), rear_cog: cogStream } }) }
+  const sandbox = { icu: icuWith({ customStreams: { ...custom, FaFront: ride.map(r => r.fa), RearCog: cogStream } }) }
   run('charts/mtb_bike.js', sandbox)
   const { data } = sandbox.chart
   assert.equal(data.length, 7)
   assert.deepEqual(Array.from(data[4].x), ['18T', '21T', '28T'])
   const climbMinutes = Array.from(data[4].y)
   assert.ok(Math.abs(climbMinutes[2] - 500 / 60) < 1e-9, `28T climbing minutes ${climbMinutes[2]}`)
+  // Each panel's own y axis has its own height: the band (y, with the cog on y2 over it) above the minutes (y3).
+  const { layout } = sandbox.chart
+  assert.equal(layout.grid, undefined)
+  assert.equal(layout.yaxis2.overlaying, 'y')
+  assert.ok(layout.yaxis.domain[0] > layout.yaxis3.domain[1], 'band above the minutes panel')
+  assert.equal(layout.xaxis2.anchor, 'y3')
+  // The band bars tile the distance axis: each starts at its sample and reaches the next one.
+  assert.equal(data[0].offset, 0)
+  assert.equal(data[0].width.length, N)
+  assert.ok(Math.abs(data[0].width[10] - 3 / 1000) < 1e-9, `band bar width ${data[0].width[10]}`)
 })
 
 console.log(`\n${passed} tests passed`)

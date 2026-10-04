@@ -1,5 +1,5 @@
 // intervals.icu custom activity stream: Rear cog (teeth) from SRAM AXS shifts
-// Settings: Code rear_cog · Units T · tick "Processes fit file messages"
+// Settings: Code RearCog · Units T · tick "Processes fit file messages"
 //
 // The Karoo writes one FIT event per rear shift (rear_gear = teeth). This turns them into a
 // second-by-second "cog in use" stream.

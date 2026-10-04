@@ -1,5 +1,5 @@
 // intervals.icu custom activity stream: MTB Flow (unnecessary braking, metres per second)
-// Settings: Code mtb_flow · Units m · tick "Processes fit file messages"
+// Settings: Code MtbFlow · Units m · tick "Processes fit file messages"
 //
 // The Karoo writes mtb_flow a few seconds late (Flow looks ahead: braking before a tight corner
 // is fine). This script moves every value back to the second it belongs to.
