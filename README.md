@@ -361,6 +361,9 @@ See **[intervals-icu/README.md](intervals-icu/README.md)**: copy-paste custom st
 fields, interval fields (Grit/Flow/jumps for any selected trail section or lap) and activity
 charts (MTB Dynamics, Jumps, Trail segments, Suspension & gears). They work for Karoo and Garmin
 rides; the Flight Attendant / AXS ones need a Karoo ride with those parts paired.
+`python3 tools/icu_setup.py` (with `INTERVALS_API_KEY`) creates all of them through the API;
+`--reprocess 365 --snippet reprocess.js` lists the older rides that have the data and writes a
+script that reprocesses them from a logged-in intervals.icu tab.
 
 ## Analysis script
 
@@ -608,7 +611,7 @@ app/src/main/kotlin/io/github/angkyria/karoomtb/
   ui/        settings screen
 tools/        mtb_analyze.py (entry point) and the mtbdyn package: scoring, loaders, analysis, insights,
               sram, summary, report, imu, history, icu, cli; make_sample_fit.py, make_imu_fixtures.py,
-              make_scoring_vectors.py, make_site_demo.py
+              make_scoring_vectors.py, make_site_demo.py, make_site_guide.py, icu_setup.py
 testdata/     scoring_vectors.json (shared by the Kotlin and Python tests)
 intervals-icu/ custom streams, fields, charts for intervals.icu (+ tests)
 docs/         website (GitHub Pages) with demo reports

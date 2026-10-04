@@ -1,5 +1,5 @@
 // intervals.icu custom activity stream: MTB Braking (deceleration, m/s²)
-// Settings: Code mtb_brake · Units m/s2 · tick "Processes fit file messages"
+// Settings: Code MtbBrake · Units m/s2 · tick "Processes fit file messages"
 //
 // Like mtb_flow, the Karoo writes mtb_brake mtb_flow_lag seconds late; realign it here.
 {

@@ -1,11 +1,11 @@
 // intervals.icu custom activity chart: MTB Jumps
 // One bar per jump: airtime, coloured by estimated height; hover shows distance and speed.
-// Needs the custom streams mtb_jump_air, mtb_jump_dist and mtb_jump_height.
+// Needs the custom streams MtbJumpAir, MtbJumpDist and MtbJumpHeight.
 {
   const stream = code => { try { const s = icu.streams.get(code); if (s && s.data) return s.data } catch (e) {} return null }
   const imperial = !!(icu.athlete && icu.athlete.measurement_preference === 'feet')
   const lenF = imperial ? 3.28084 : 1, lenU = imperial ? 'ft' : 'm'
-  const air = stream('mtb_jump_air') || [], dist = stream('mtb_jump_dist') || [], height = stream('mtb_jump_height') || []
+  const air = stream('MtbJumpAir') || [], dist = stream('MtbJumpDist') || [], height = stream('MtbJumpHeight') || []
   const time = stream('time') || []
   const x = [], y = [], color = [], text = []
   for (let i = 0; i < air.length; i++) {

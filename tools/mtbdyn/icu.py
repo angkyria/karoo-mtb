@@ -15,26 +15,39 @@ from .report import Units, hms
 RIDE_TYPES = {"Ride", "MountainBikeRide", "GravelRide", "EBikeRide", "EMountainBikeRide"}
 DESCRIPTION_MARKER = "🚵 MTB Dynamics"
 
+class IcuError(Exception):
+    def __init__(self, method: str, path: str, status: int, body: bytes):
+        super().__init__(f"intervals.icu {method} {path}: HTTP {status} {body[:300]!r}")
+        self.status = status
+
+
 class IntervalsIcu:
     """Minimal client for https://intervals.icu/api/v1 (Settings → Developer Settings → API key)."""
 
     def __init__(self, api_key: str, athlete: str = "0", base: str = "https://intervals.icu"):
-        token = base64.b64encode(f"API_KEY:{api_key}".encode()).decode()
+        token = base64.b64encode(f"API_KEY:{api_key.strip()}".encode()).decode()
         self.headers = {"Authorization": f"Basic {token}", "User-Agent": "karoo-mtb/1.0"}
         self.athlete = athlete
         self.base = base.rstrip("/")
 
-    def _request(self, method: str, path: str, body: dict | None = None) -> bytes:
+    def call(self, method: str, path: str, body: dict | list | None = None, timeout: float = 60) -> bytes:
+        """Raises IcuError on an HTTP error."""
         data = json.dumps(body).encode() if body is not None else None
         headers = dict(self.headers)
         if data is not None:
             headers["Content-Type"] = "application/json"
         req = urllib.request.Request(self.base + path, data=data, method=method, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.read()
         except urllib.error.HTTPError as e:
-            sys.exit(f"intervals.icu {method} {path}: HTTP {e.code} {e.read()[:200]!r}")
+            raise IcuError(method, path, e.code, e.read()) from None
+
+    def _request(self, method: str, path: str, body: dict | None = None) -> bytes:
+        try:
+            return self.call(method, path, body)
+        except IcuError as e:
+            sys.exit(str(e))
 
     def latest_ride_id(self, days: int = 30) -> str:
         today = dt.date.today()
@@ -62,6 +75,21 @@ class IntervalsIcu:
 
     def update(self, activity_id: str, fields: dict) -> None:
         self._request("PUT", f"/api/v1/activity/{activity_id}", fields)
+
+    # Custom streams, fields and charts (tools/icu_setup.py). The content of an item is not in the
+    # API docs; tools/icu_setup.py sends what intervals.icu's own editors save.
+    def activities(self, oldest: str, newest: str) -> list[dict]:
+        q = urllib.parse.urlencode({"oldest": oldest, "newest": newest})
+        return json.loads(self.call("GET", f"/api/v1/athlete/{self.athlete}/activities?{q}"))
+
+    def custom_items(self) -> list[dict]:
+        return json.loads(self.call("GET", f"/api/v1/athlete/{self.athlete}/custom-item"))
+
+    def create_custom_item(self, item: dict) -> dict:
+        return json.loads(self.call("POST", f"/api/v1/athlete/{self.athlete}/custom-item", item))
+
+    def update_custom_item(self, item_id: int, item: dict) -> dict:
+        return json.loads(self.call("PUT", f"/api/v1/athlete/{self.athlete}/custom-item/{item_id}", item))
 
 
 def description_block(s: dict, u: Units) -> str:

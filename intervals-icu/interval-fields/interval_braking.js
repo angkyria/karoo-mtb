@@ -1,8 +1,8 @@
 // intervals.icu custom interval field: Interval braking (% of moving time slowing down hard)
-// Settings: Code IntMtbBraking · Units % · needs the custom stream mtb_brake
+// Settings: Code IntMtbBraking · Units % · needs the custom stream MtbBrake
 {
   const stream = code => { try { const s = icu.streams.get(code); if (s && s.data) return s.data } catch (e) {} return null }
-  const brake = stream('mtb_brake'), vel = stream('velocity_smooth')
+  const brake = stream('MtbBrake'), vel = stream('velocity_smooth')
   let moving = 0, braking = 0
   if (brake) {
     for (let i = interval.start_index; i < interval.end_index; i++) {

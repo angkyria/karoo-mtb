@@ -26,6 +26,9 @@ FORUM = {
 }
 
 
+# Codes of custom items must be CamelCase: intervals.icu's editors reject anything else. Only the
+# FIT field names (mtb_grit, front_suspension, ...) are snake_case. number_format, aggregate and
+# color are not shown in the guide; tools/icu_setup.py sends them when it creates the items.
 @dataclass
 class Stream:
     name: str
@@ -36,6 +39,8 @@ class Stream:
     note: str = ""
     quick: bool = False
     bike: bool = False
+    number_format: str = ".1f"
+    color: str = "#0E7BF1"
 
 
 @dataclass
@@ -47,6 +52,8 @@ class ActivityField:
     script: str
     quick: bool = False
     bike: bool = False
+    number_format: str = ".1f"
+    aggregate: str = "AVERAGE"        # how totals pages combine rides: SUM, AVERAGE, MIN, MAX
 
 
 @dataclass
@@ -57,6 +64,7 @@ class IntervalField:
     script: str
     needs: list[str] = field(default_factory=list)
     bike: bool = False
+    number_format: str = ".1f"
 
 
 @dataclass
@@ -67,66 +75,82 @@ class Chart:
     shows: str
     quick: bool = False
     bike: bool = False
+    height: str = "300px"             # intervals.icu's default; a taller chart needs it set
 
 
 STREAMS = [
-    Stream("MTB Grit", "mtb_grit", "grit", fit_field="mtb_grit", script="streams/mtb_grit.js", quick=True,
-           note="Pick the record field, or use the script to include Garmin rides too."),
-    Stream("MTB Flow", "mtb_flow", "m", script="streams/mtb_flow.js", quick=True,
-           note="Script: moves the values back by the 3 s the Karoo writes them late."),
-    Stream("MTB Braking", "mtb_brake", "m/s2", script="streams/mtb_brake.js", note="Script: realigned like Flow."),
-    Stream("MTB Roughness", "mtb_rough", "g", fit_field="mtb_rough"),
-    Stream("MTB Corner G", "mtb_lat_g", "g", fit_field="mtb_lat_g"),
-    Stream("MTB Jump Airtime", "mtb_jump_air", "s", fit_field="mtb_jump_air", quick=True),
-    Stream("MTB Jump Distance", "mtb_jump_dist", "m", fit_field="mtb_jump_dist"),
-    Stream("MTB Jump Height", "mtb_jump_height", "m", fit_field="mtb_jump_height"),
-    Stream("FA Fork", "fa_front", "state", fit_field="front_suspension", bike=True,
-           note="Recorded by the Karoo itself: 0 Open, 1 Pedal, 2 Lock."),
-    Stream("FA Shock", "fa_rear", "state", fit_field="rear_suspension", bike=True),
-    Stream("FA Effort Zone", "fa_effort", "zone", fit_field="suspension_effort_zone", bike=True),
-    Stream("Rear Cog", "rear_cog", "T", script="streams/rear_cog.js", bike=True,
-           note="Script: turns the AXS shift events into the cog in use."),
+    Stream("MTB Grit", "MtbGrit", "grit", fit_field="mtb_grit", script="streams/mtb_grit.js", quick=True,
+           note="Pick the record field, or use the script to include Garmin rides too.", color="#e65100"),
+    Stream("MTB Flow", "MtbFlow", "m", script="streams/mtb_flow.js", quick=True,
+           note="Script: moves the values back by the 3 s the Karoo writes them late.", color="#1565c0"),
+    Stream("MTB Braking", "MtbBrake", "m/s2", script="streams/mtb_brake.js", note="Script: realigned like Flow.",
+           number_format=".2f", color="#c62828"),
+    Stream("MTB Roughness", "MtbRough", "g", fit_field="mtb_rough", number_format=".2f", color="#6d4c41"),
+    Stream("MTB Corner G", "MtbLatG", "g", fit_field="mtb_lat_g", number_format=".2f", color="#6a1b9a"),
+    Stream("MTB Jump Airtime", "MtbJumpAir", "s", fit_field="mtb_jump_air", quick=True, number_format=".2f", color="#2e7d32"),
+    Stream("MTB Jump Distance", "MtbJumpDist", "m", fit_field="mtb_jump_dist", color="#00897b"),
+    Stream("MTB Jump Height", "MtbJumpHeight", "m", fit_field="mtb_jump_height", number_format=".2f", color="#7cb342"),
+    Stream("FA Fork", "FaFront", "state", fit_field="front_suspension", bike=True,
+           note="Recorded by the Karoo itself: 0 Open, 1 Pedal, 2 Lock.", number_format=".0f", color="#455a64"),
+    Stream("FA Shock", "FaRear", "state", fit_field="rear_suspension", bike=True, number_format=".0f", color="#78909c"),
+    Stream("FA Effort Zone", "FaEffort", "zone", fit_field="suspension_effort_zone", bike=True, number_format=".0f",
+           color="#f9a825"),
+    Stream("Rear Cog", "RearCog", "T", script="streams/rear_cog.js", bike=True,
+           note="Script: turns the AXS shift events into the cog in use.", number_format=".0f", color="#5e35b1"),
 ]
 
 ACTIVITY_FIELDS = [
-    ActivityField("MTB Grit", "MtbGrit", "kGrit", "mtb_total_grit", "activity-fields/mtb_grit.js", quick=True),
-    ActivityField("MTB Flow", "MtbFlow", "flow", "mtb_flow_score", "activity-fields/mtb_flow.js", quick=True),
-    ActivityField("MTB Jumps", "MtbJumps", "jumps", "mtb_jumps", "activity-fields/mtb_jumps.js", quick=True),
-    ActivityField("MTB Max Airtime", "MtbMaxAir", "s", "mtb_max_air", "activity-fields/mtb_max_air.js"),
-    ActivityField("MTB Total Airtime", "MtbTotalAir", "s", "mtb_total_air", "activity-fields/mtb_total_air.js"),
-    ActivityField("MTB Score", "MtbScore", "score", "mtb_score", "activity-fields/mtb_score.js"),
-    ActivityField("MTB Descent Braking", "MtbDescentBraking", "%", "mtb_descent_braking", "activity-fields/mtb_descent_braking.js"),
-    ActivityField("MTB Corners", "MtbCorners", "corners", "mtb_corners", "activity-fields/mtb_corners.js"),
-    ActivityField("MTB Max Corner G", "MtbMaxCornerG", "g", "mtb_max_lat_g", "activity-fields/mtb_max_corner_g.js"),
-    ActivityField("FA Open on descents", "MtbFaOpenDesc", "%", "mtb_fa_open_desc", "activity-fields/mtb_fa_open_desc.js", bike=True),
-    ActivityField("FA locked on rough ground", "MtbFaLockRough", "s", "mtb_fa_lock_rough", "activity-fields/mtb_fa_lock_rough.js", bike=True),
+    ActivityField("MTB Grit", "MtbGrit", "kGrit", "mtb_total_grit", "activity-fields/mtb_grit.js", quick=True, aggregate="SUM"),
+    ActivityField("MTB Flow", "MtbFlow", "flow", "mtb_flow_score", "activity-fields/mtb_flow.js", quick=True, number_format=".2f"),
+    ActivityField("MTB Jumps", "MtbJumps", "jumps", "mtb_jumps", "activity-fields/mtb_jumps.js", quick=True,
+                  number_format=".0f", aggregate="SUM"),
+    ActivityField("MTB Max Airtime", "MtbMaxAir", "s", "mtb_max_air", "activity-fields/mtb_max_air.js",
+                  number_format=".2f", aggregate="MAX"),
+    ActivityField("MTB Total Airtime", "MtbTotalAir", "s", "mtb_total_air", "activity-fields/mtb_total_air.js", aggregate="SUM"),
+    ActivityField("MTB Score", "MtbScore", "score", "mtb_score", "activity-fields/mtb_score.js", number_format=".0f"),
+    ActivityField("MTB Descent Braking", "MtbDescentBraking", "%", "mtb_descent_braking", "activity-fields/mtb_descent_braking.js",
+                  number_format=".0f"),
+    ActivityField("MTB Corners", "MtbCorners", "corners", "mtb_corners", "activity-fields/mtb_corners.js",
+                  number_format=".0f", aggregate="SUM"),
+    ActivityField("MTB Max Corner G", "MtbMaxCornerG", "g", "mtb_max_lat_g", "activity-fields/mtb_max_corner_g.js",
+                  number_format=".2f", aggregate="MAX"),
+    ActivityField("FA Open on descents", "MtbFaOpenDesc", "%", "mtb_fa_open_desc", "activity-fields/mtb_fa_open_desc.js", bike=True,
+                  number_format=".0f"),
+    ActivityField("FA locked on rough ground", "MtbFaLockRough", "s", "mtb_fa_lock_rough", "activity-fields/mtb_fa_lock_rough.js",
+                  bike=True, number_format=".0f", aggregate="SUM"),
     ActivityField("Shifts per km", "MtbShiftsKm", "/km", "mtb_shifts_km", "activity-fields/mtb_shifts_km.js", bike=True),
-    ActivityField("Climbing power", "MtbClimbPower", "W", "mtb_climb_power", "activity-fields/mtb_climb_power.js", bike=True),
-    ActivityField("Pedalling on descents", "MtbDescPedal", "%", "mtb_desc_pedal", "activity-fields/mtb_desc_pedal.js", bike=True),
+    ActivityField("Climbing power", "MtbClimbPower", "W", "mtb_climb_power", "activity-fields/mtb_climb_power.js", bike=True,
+                  number_format=".0f"),
+    ActivityField("Pedalling on descents", "MtbDescPedal", "%", "mtb_desc_pedal", "activity-fields/mtb_desc_pedal.js", bike=True,
+                  number_format=".0f"),
 ]
 
 INTERVAL_FIELDS = [
-    IntervalField("Grit", "IntMtbGrit", "kGrit", "interval-fields/interval_grit.js", ["mtb_grit"]),
-    IntervalField("Flow", "IntMtbFlow", "flow", "interval-fields/interval_flow.js", ["mtb_flow"]),
-    IntervalField("Jumps", "IntMtbJumps", "jumps", "interval-fields/interval_jumps.js", ["mtb_jump_air"]),
-    IntervalField("Max airtime", "IntMtbMaxAir", "s", "interval-fields/interval_max_air.js", ["mtb_jump_air"]),
-    IntervalField("Braking", "IntMtbBraking", "%", "interval-fields/interval_braking.js", ["mtb_brake"]),
-    IntervalField("Roughness", "IntMtbRough", "g", "interval-fields/interval_roughness.js", ["mtb_rough"]),
-    IntervalField("FA Open", "IntFaOpen", "%", "interval-fields/interval_fa_open.js", ["fa_front"], bike=True),
-    IntervalField("FA Lock", "IntFaLock", "%", "interval-fields/interval_fa_lock.js", ["fa_front"], bike=True),
-    IntervalField("Shifts", "IntShifts", "shifts", "interval-fields/interval_shifts.js", ["rear_cog"], bike=True),
-    IntervalField("Main cog", "IntCog", "T", "interval-fields/interval_cog.js", ["rear_cog"], bike=True),
+    IntervalField("Grit", "IntMtbGrit", "kGrit", "interval-fields/interval_grit.js", ["MtbGrit"]),
+    IntervalField("Flow", "IntMtbFlow", "flow", "interval-fields/interval_flow.js", ["MtbFlow"], number_format=".2f"),
+    IntervalField("Jumps", "IntMtbJumps", "jumps", "interval-fields/interval_jumps.js", ["MtbJumpAir"],
+                  number_format=".0f"),
+    IntervalField("Max airtime", "IntMtbMaxAir", "s", "interval-fields/interval_max_air.js", ["MtbJumpAir"],
+                  number_format=".2f"),
+    IntervalField("Braking", "IntMtbBraking", "%", "interval-fields/interval_braking.js", ["MtbBrake"], number_format=".0f"),
+    IntervalField("Roughness", "IntMtbRough", "g", "interval-fields/interval_roughness.js", ["MtbRough"], number_format=".2f"),
+    IntervalField("FA Open", "IntFaOpen", "%", "interval-fields/interval_fa_open.js", ["FaFront"], bike=True, number_format=".0f"),
+    IntervalField("FA Lock", "IntFaLock", "%", "interval-fields/interval_fa_lock.js", ["FaFront"], bike=True, number_format=".0f"),
+    IntervalField("Shifts", "IntShifts", "shifts", "interval-fields/interval_shifts.js", ["RearCog"], bike=True,
+                  number_format=".0f"),
+    IntervalField("Main cog", "IntCog", "T", "interval-fields/interval_cog.js", ["RearCog"], bike=True, number_format=".0f"),
 ]
 
 CHARTS = [
-    Chart("MTB Dynamics", "charts/mtb_dynamics.js", ["mtb_grit", "mtb_flow", "mtb_jump_air"],
+    Chart("MTB Dynamics", "charts/mtb_dynamics.js", ["MtbGrit", "MtbFlow", "MtbJumpAir"],
           "Altitude profile with Grit (60 s) and Flow (60 s) on top and every jump marked.", quick=True),
-    Chart("MTB Jumps", "charts/mtb_jumps.js", ["mtb_jump_air", "mtb_jump_dist", "mtb_jump_height"],
+    Chart("MTB Jumps", "charts/mtb_jumps.js", ["MtbJumpAir", "MtbJumpDist", "MtbJumpHeight"],
           "One bar per jump: airtime, coloured by height; hover shows distance and speed."),
-    Chart("MTB Trail Segments", "charts/mtb_segments.js", ["mtb_grit", "mtb_flow", "mtb_brake", "mtb_jump_air"],
+    Chart("MTB Trail Segments", "charts/mtb_segments.js", ["MtbGrit", "MtbFlow", "MtbBrake", "MtbJumpAir"],
           "Climbs, descents and flats with Grit, Flow, braking and jumps for each."),
-    Chart("Suspension & gears", "charts/mtb_bike.js", ["fa_front", "rear_cog"],
-          "Flight Attendant state as a coloured band with the rear cog on top, and minutes per cog by terrain.", bike=True),
+    Chart("Suspension & gears", "charts/mtb_bike.js", ["FaFront", "RearCog"],
+          "Flight Attendant state as a coloured band with the rear cog on top, and minutes per cog by terrain.", bike=True,
+          height="600px"),
 ]
 
 
@@ -190,7 +214,8 @@ def interval_rows(items: list[IntervalField]) -> str:
 def chart_cards(items: list[Chart]) -> str:
     return "\n".join(
         f'<div class="card"><h3>{esc(c.name)}{" <span class=tag>bike</span>" if c.bike else ""}</h3><p>{esc(c.shows)}</p>'
-        f'<p class="needs">Needs the streams {", ".join(chip(n) for n in c.needs)}</p>{script_block(c.script, "Chart script")}</div>'
+        f'<p class="needs">Needs the streams {", ".join(chip(n) for n in c.needs)}'
+        f'{f". Set the chart height to {chip(c.height)}." if c.height != "300px" else ""}</p>{script_block(c.script, "Chart script")}</div>'
         for c in items)
 
 
@@ -343,8 +368,16 @@ button.copy.copied {{ background: var(--green); border-color: var(--green); }}
       <li>The Flight Attendant / AXS items need those parts paired with the Karoo. Skip them otherwise.</li>
     </ul>
     <div class="callout"><p><strong>Codes matter.</strong> Use the codes exactly as shown (click any <code>grey value</code> to copy it).
-      The interval fields and charts find the streams by these codes.</p>
+      The interval fields and charts find the streams by these codes. intervals.icu only accepts CamelCase codes and suggests one
+      from the name (<code>MTBGrit</code>): replace it with the code from the table.</p>
       <p>intervals.icu's menus change now and then. If a label differs slightly, the official forum posts linked in each step have screenshots.</p></div>
+    <div class="callout"><p><strong>Or let a script do all of it.</strong> With your API key (intervals.icu → Settings → Developer Settings),
+      <a href="{repo}/blob/main/tools/icu_setup.py"><code>tools/icu_setup.py</code></a> creates every stream, field and chart below and
+      finds your older rides that have MTB Dynamics or Flight Attendant data (see step 5):</p>
+      <pre><code>export INTERVALS_API_KEY=...
+python3 tools/icu_setup.py --dry-run && python3 tools/icu_setup.py
+python3 tools/icu_setup.py --no-items --reprocess 365 --snippet reprocess.js</code></pre>
+      <p>Then add the charts to the activity page (<strong>Charts</strong> → <strong>+</strong>) and pick the fields you want in the activity list.</p></div>
   </div>
 </section>
 
@@ -464,6 +497,10 @@ button.copy.copied {{ background: var(--green); border-color: var(--green); }}
     <ul class="check">
       <li>One ride: <strong>Actions → Reprocess File</strong>. This re-reads the FIT file; <em>Re-analyse</em> only recomputes from data already imported.</li>
       <li>Many rides: <strong>Calendar</strong> → switch to the activity list → tick the rides → edit them and reprocess / re-analyse in one go.</li>
+      <li>Or <code>python3 tools/icu_setup.py --no-items --reprocess 365 --snippet reprocess.js</code>: lists the rides of the last year whose
+        FIT file has MTB Dynamics or Flight Attendant / AXS data. intervals.icu only reprocesses files from its website, so paste
+        <code>reprocess.js</code> into the browser console of a logged-in intervals.icu tab: it sends the website's own Reprocess File
+        request for each of those rides, keeping intervals and manually entered field values.</li>
     </ul>
   </div>
 </section>
