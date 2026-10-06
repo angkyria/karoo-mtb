@@ -1,10 +1,11 @@
 """Jump ground truth: labels.csv in the ride folder, label precedence, review candidates and spots."""
 from __future__ import annotations
 
+import datetime as dt
 import math
 import os
 
-from .imu import MIN_JUMP_SPEED, PRESETS, Thresholds, find_flights, preset_thresholds, verdict
+from .imu import MIN_JUMP_SPEED, PRESETS, Thresholds, find_flights, labels_for, preset_thresholds, verdict
 from .loaders import _index_at
 
 LABELS_FILE = "labels.csv"
@@ -111,3 +112,67 @@ def spots(cands: list[dict], radius_m: float = SPOT_RADIUS_M) -> list[list[dict]
         else:
             home.append(c)
     return groups
+
+
+# --------------------------------------------------------------------------------------------
+# Review: label every candidate, one spot at a time (--review), or as a CSV to fill in (--dump)
+# --------------------------------------------------------------------------------------------
+def _hms(t: float) -> str:
+    return dt.datetime.fromtimestamp(t, dt.timezone.utc).strftime("%H:%M:%S")
+
+
+def _save(ride_dir: str, c: dict, label: str) -> None:
+    append_label(ride_dir, int(round(c["t"] * 1000)), label, "review")
+
+
+def review(ride, ride_dir: str, accel, ask=input, out=print) -> int:
+    """Interactive pass over every unlabelled candidate flight, spot by spot. Returns labels written."""
+    cands = candidates(ride, accel)
+    labels = labels_for(ride, None, 0)
+    pairs = resolve(cands, labels)
+    done = {id(fl) for fl, lab in pairs if lab.get("source") == "review"}
+    button = {id(fl): lab["label"] for fl, lab in resolve(cands, [x for x in labels if x.get("source") == "button"])}
+    groups = [g for g in ([c for c in g if id(c) not in done] for g in spots(cands)) if g]
+    out(f"{sum(len(g) for g in groups)} unlabelled flights at {len(groups)} spots")
+    written = 0
+    for k, g in enumerate(groups, 1):
+        speeds = [c["speed"] for c in g if c["speed"] is not None]
+        out(f"\nSpot {k} · {len(g)} pass{'es' if len(g) > 1 else ''}"
+            + (f" · ~{sum(speeds) / len(speeds) * 3.6:.0f} km/h" if speeds else ""))
+        for c in g:
+            marks = "  ".join(f"{p[:3]} {'✓' if not v else '✗'}" for p, v in c["verdicts"].items())
+            out(f"  {_hms(c['t'])}  {c['air']:.2f} s air · mean {c['mean_g']:.2f} g · landing {c['landing_g']:.1f} g"
+                f"   {marks}   [button: {button.get(id(c), '—')}]")
+        while True:
+            a = ask("[J]ump all · [N]ot a jump all · [e]ach pass · [s]kip · [q]uit > ").strip()
+            if a in ("J", "N"):
+                for c in g:
+                    _save(ride_dir, c, "jump" if a == "J" else "nojump")
+                    written += 1
+                break
+            if a == "e":
+                for c in g:
+                    b = ask(f"  {_hms(c['t'])} [j]ump / [n]ot / [s]kip > ").strip().lower()
+                    if b in ("j", "n"):
+                        _save(ride_dir, c, "jump" if b == "j" else "nojump")
+                        written += 1
+                break
+            if a == "s":
+                break
+            if a == "q":
+                return written
+    return written
+
+
+def dump_candidates(ride, accel, path: str) -> int:
+    """The review list as CSV with an empty label column; fill it in and pass it back with --labels."""
+    cands = candidates(ride, accel)
+    with open(path, "w") as f:
+        f.write("wall_ms,label,air_s,mean_g,landing_g,speed_kmh,spot,LOW,MEDIUM,HIGH\n")
+        for k, g in enumerate(spots(cands), 1):
+            for c in g:
+                sp = "" if c["speed"] is None else f"{c['speed'] * 3.6:.0f}"
+                yes = ["yes" if not c["verdicts"][p] else "no" for p in ("LOW", "MEDIUM", "HIGH")]
+                f.write(f"{int(round(c['t'] * 1000))},,{c['air']:.2f},{c['mean_g']:.2f},{c['landing_g']:.2f},{sp},{k},"
+                        + ",".join(yes) + "\n")
+    return len(cands)

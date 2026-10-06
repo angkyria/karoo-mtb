@@ -129,5 +129,53 @@ class CandidatesTest(unittest.TestCase):
         self.assertEqual([[1], [2]], [[x["t"] for x in g] for g in groundtruth.spots(nopos)])
 
 
+class ReviewTest(unittest.TestCase):
+    def _ride(self):
+        from test_labels import write_imu
+        d = tempfile.mkdtemp()
+        write_imu(os.path.join(d, "imu.csv.gz"))
+        ride = Ride(samples=[Sample(t=WALL0 + i, speed=6.0, lat=35.0 + i * 0.001, lon=33.0) for i in range(30)])
+        ride.folder = d
+        accel, _ = imu.load_imu(os.path.join(d, "imu.csv.gz"))
+        return ride, d, accel
+
+    def test_review_writes_each_answer_and_skips_labelled_on_rerun(self):
+        ride, d, accel = self._ride()
+        answers = iter(["J", "q"])
+        n = groundtruth.review(ride, d, accel, ask=lambda _p: next(answers), out=lambda *_a: None)
+        self.assertEqual(1, n)
+        answers = iter(["N"])
+        n = groundtruth.review(ride, d, accel, ask=lambda _p: next(answers), out=lambda *_a: None)
+        self.assertEqual(1, n)                         # only the second flight was left
+        labels = imu.read_labels(os.path.join(d, "labels.csv"), 0)
+        self.assertEqual(["jump", "nojump"], [x["label"] for x in labels])
+        self.assertEqual({"review"}, {x["source"] for x in labels})
+
+    def test_review_label_each_pass(self):
+        ride, d, accel = self._ride()
+        ride.samples = [Sample(t=WALL0 + i, speed=6.0, lat=35.0, lon=33.0) for i in range(30)]   # one spot, 2 passes
+        answers = iter(["e", "j", "n"])
+        self.assertEqual(2, groundtruth.review(ride, d, accel, ask=lambda _p: next(answers), out=lambda *_a: None))
+        self.assertEqual(["jump", "nojump"], [x["label"] for x in imu.read_labels(os.path.join(d, "labels.csv"), 0)])
+
+    def test_dump_has_an_empty_label_column_and_no_positions(self):
+        ride, d, accel = self._ride()
+        path = os.path.join(d, "candidates.csv")
+        self.assertEqual(2, groundtruth.dump_candidates(ride, accel, path))
+        with open(path) as f:
+            head = f.readline().strip().split(",")
+            row = f.readline().strip().split(",")
+        self.assertEqual("label", head[1])
+        self.assertEqual("", row[1])
+        self.assertNotIn("lat", head)
+        self.assertEqual([], imu.read_labels(path, 0))   # unfilled rows are not labels
+
+    def test_cli_review_without_imu_log_exits_cleanly(self):
+        from mtbdyn.cli import main
+        d = tempfile.mkdtemp()
+        _write_min_ride(d, [])
+        self.assertEqual(0, main(["--karoo-dir", d, "--review", "--quiet"]))
+
+
 if __name__ == "__main__":
     unittest.main()
