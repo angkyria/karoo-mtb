@@ -98,7 +98,7 @@ reminders when something is due):
 | Live descents, trails / PBs, map layer, Mark moment, intervals.icu push, debug bundle (v0.3) | 🟡 unit-tested against simulated rides and the karoo-ext SDK; not on a real ride yet |
 | Karoo 3 | ⚪ not tested yet (same SDK, should work) |
 
-90 Kotlin, 28 Python and 15 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
+97 Kotlin, 69 Python and 16 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
 
 ---
 
@@ -492,12 +492,33 @@ levels). Synthetic rides are in `CalibrationTest.kt`:
 * **Segment split** (default 15 m): smaller for short, punchy trails.
 * **Debug: save raw sensor data** stores the 100 Hz accelerometer / gyroscope with each ride
   (`imu.csv.gz`, ~3 MB/h). Ride a few known jumps, pull the ride folder and run
-  `mtb_analyze.py --karoo-dir <ride> --imu` to see what each sensitivity would detect.
+  `mtb_analyze.py --karoo-dir <ride> --imu` to see what each sensitivity would detect. On a
+  Karoo 2 the real rate is about 87 Hz; the detector adapts to whatever rate the sensor delivers.
 * **Label your jumps.** Press *Mark moment* right after each real jump (the alert already says if
   it counted). With the raw sensor log on, `--imu` then reports per sensitivity how many marked
   jumps it finds and how many detections had no mark. For things that were *not* jumps (rough
   ground, a hard compression), write a labels file: one `HH:MM:SS,jump` or `HH:MM:SS,nojump` per
   line (UTC, as `--imu` prints take-offs) and pass `--labels labels.csv`.
+* **Jump ground truth (v0.4).** The goal: when the summary says N jumps, they are N real jumps.
+  1. Assign **Not a jump (MTB Dynamics)** to a controller button next to *Mark moment*
+     (Profiles → profile → controller / remote → MTB Dynamics) and turn on *Debug: save raw sensor
+     data*. Keep sensitivity on *High* while collecting labels, so every candidate flight is recorded.
+  2. Ride. Press *Mark moment* after real jumps and *Not a jump* after rollers or root hits. The
+     alert names the flight it labelled ("Not a jump #3 · flight 0.24 s, counted").
+  3. Pull the ride folder and review every candidate flight, grouped by spot (passes over the same
+     feature within 15 m are labelled together):
+     `mtb_analyze.py --karoo-dir rides/<ride> --review` (or `--review --dump candidates.csv` to
+     fill in a CSV). Labels go to `labels.csv` in the ride folder, with times only, no positions;
+     a review label overrides a button press.
+  4. Add the ride to your private corpus: `mtb_analyze.py --karoo-dir rides/<ride> --corpus`
+     (default `~/karoo-mtb-corpus`, ± 3 s IMU clips, no GPS, no date).
+  5. Once it holds ≥ 20 jumps and ≥ 20 not-a-jumps from ≥ 3 rides, `mtb_analyze.py --fit` proposes
+     presets: MEDIUM at ≥ 95 % precision, LOW ≥ 99 %, HIGH ≥ 85 %, each with the best recall,
+     validated leave-one-ride-out. Below that it only reports how the current presets do.
+  6. Paste the proposal into `MtbConfig.kt` and `imu.PRESETS`, run `tools/make_scoring_vectors.py`,
+     then `mtb_analyze.py --fit --export-fixtures app/src/test/resources/imu` and
+     `./gradlew testDebugUnitTest -Pcorpus=~/karoo-mtb-corpus`. The corpus test fails if the presets
+     differ from the fit, if Kotlin and Python disagree on any clip, or if a preset misses its target.
 * **Turn them into tests.** `mtb_analyze.py --karoo-dir <ride> --imu --export-snippets
   app/src/test/resources/imu` writes each labelled flight as a short IMU snippet (± 3 s, relative
   time, no GPS) and adds it to `manifest.json`. `JumpFixtureTest` replays every snippet through the
