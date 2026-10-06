@@ -344,7 +344,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
      * carries the longest flight that landed within [MARK_FLIGHT_WINDOW_SEC] before the press
      * (a jump, not the bump right after its landing).
      */
-    fun markMoment(wallMs: Long, elapsedMs: Long): Marker? = synchronized(lock) {
+    fun markMoment(wallMs: Long, elapsedMs: Long, label: MarkLabel = MarkLabel.JUMP): Marker? = synchronized(lock) {
         if (status != RideStatus.RECORDING) return null
         val nowSec = elapsedMs / 1000.0
         val flight = jumpDetector.recentFlights.filter { nowSec - (it.takeoffSec + it.airSec) in -1.0..MARK_FLIGHT_WINDOW_SEC }.maxByOrNull { it.airSec }
@@ -359,6 +359,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             flightAirSec = flight?.airSec?.takeIf { ago != null },
             flightLandingG = flight?.landingG?.takeIf { ago != null },
             flightVerdict = flight?.reason?.takeIf { ago != null },
+            label = label,
         )
         markers += marker
         storageMarkers += marker
