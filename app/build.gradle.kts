@@ -61,6 +61,10 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // ./gradlew testDebugUnitTest -Pcorpus=~/karoo-mtb-corpus runs CorpusPrecisionTest on the private label corpus.
+        unitTests.all { test ->
+            test.systemProperty("mtb.corpus", (project.findProperty("corpus") as String?) ?: "")
+        }
     }
     lint {
         // Errors fail CI; warnings are listed in the report (artifact "lint-report").
