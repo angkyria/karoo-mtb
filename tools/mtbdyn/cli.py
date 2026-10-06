@@ -16,7 +16,7 @@ from .loaders import _num, load_fit, load_karoo_dir, read_fit_bytes, rescore
 from .model import Ride
 from .report import Units, report_text, write_csv, write_html
 from .summary import summarize
-from .tune import DEFAULT_CORPUS, add_ride
+from .tune import DEFAULT_CORPUS, add_ride, export_fixtures, fit
 
 
 # --------------------------------------------------------------------------------------------
@@ -37,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dump", metavar="CSV", help="with --review: write the candidates to CSV (fill in the label column) instead of asking")
     p.add_argument("--corpus", nargs="?", const=DEFAULT_CORPUS, metavar="DIR",
                    help="with --karoo-dir: add this ride's labelled flights to the private corpus (default ~/karoo-mtb-corpus)")
+    p.add_argument("--fit", dest="fit_corpus", nargs="?", const=DEFAULT_CORPUS, metavar="CORPUS",
+                   help="propose jump presets from the labelled corpus (default ~/karoo-mtb-corpus)")
+    p.add_argument("--export-fixtures", metavar="DIR",
+                   help="with --fit: copy boundary clips to DIR (app/src/test/resources/imu) with per-preset expectations")
     p.add_argument("--icu", metavar="ID|latest", help="analyse an intervals.icu activity (needs INTERVALS_API_KEY)")
     p.add_argument("--icu-athlete", default=os.environ.get("INTERVALS_ATHLETE_ID", "0"), help="athlete id (default 0 = you)")
     p.add_argument("--icu-key", default=os.environ.get("INTERVALS_API_KEY"), help="intervals.icu API key")
@@ -61,6 +65,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--trails-json", help="trails.json pulled from the Karoo: trails with runs and personal bests")
     a = p.parse_args(argv)
     units = Units(a.imperial)
+
+    if a.fit_corpus:
+        result = fit(a.fit_corpus)
+        if result and a.export_fixtures:
+            for name in export_fixtures(a.fit_corpus, result, a.export_fixtures):
+                print(f"wrote {os.path.join(a.export_fixtures, name)}")
+        return 0
 
     if a.trails_json:
         print(trails_text(a.trails_json, units))

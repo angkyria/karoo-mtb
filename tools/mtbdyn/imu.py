@@ -295,8 +295,8 @@ def update_manifest(out_dir: str, entries: list[dict]) -> str:
     names = {e["file"] for e in entries}
     fixtures = [e for e in current if e["file"] not in names] + entries
     with open(path, "w") as f:
-        json.dump({"comment": "IMU snippets replayed by JumpFixtureTest.kt (MEDIUM sensitivity unless 'preset' says otherwise). "
-                              "Write them with mtb_analyze.py --karoo-dir RIDE --imu --export-snippets DIR.",
+        json.dump({"comment": "IMU snippets replayed by JumpFixtureTest.kt: 'expect' per preset, or 'expectJump' at MEDIUM "
+                              "(or at 'preset'). Write real ones with mtb_analyze.py --fit CORPUS --export-fixtures DIR.",
                    "fixtures": sorted(fixtures, key=lambda e: e["file"])}, f, indent=1)
         f.write("\n")
     return path

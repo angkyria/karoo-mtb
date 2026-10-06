@@ -263,3 +263,44 @@ def fit(corpus: str, out=print) -> dict | None:
         for c in wrong:
             out(f"  {c['file']}  labelled {c['label']}")
     return result
+
+
+# --------------------------------------------------------------------------------------------
+# Fixture export: the clips nearest each preset's boundary, for JumpFixtureTest (public repo)
+# --------------------------------------------------------------------------------------------
+def export_fixtures(corpus: str, result: dict, out_dir: str, limit: int = 30) -> list[str]:
+    """Copies boundary clips (both sides of each preset's minAirSec) plus clear examples, with per-preset expectations."""
+    from .imu import update_manifest
+    clips = {c["file"]: c for c in load_corpus(corpus)}
+    rows = [{**clips[r["file"]], **r} for r in result["clips"] if r["file"] in clips]
+    picked: list[dict] = []
+
+    def take(c):
+        if all(c["file"] != p["file"] for p in picked) and len(picked) < limit:
+            picked.append(c)
+
+    for th in result["proposed"].values():
+        below = sorted((c for c in rows if c["air"] < th["minAirSec"]), key=lambda c: th["minAirSec"] - c["air"])[:3]
+        above = sorted((c for c in rows if c["air"] >= th["minAirSec"]), key=lambda c: c["air"] - th["minAirSec"])[:3]
+        for pair in zip(below, above):   # alternate sides so a small limit still covers both
+            for c in pair:
+                take(c)
+    for label in ("jump", "nojump"):
+        clear = sorted((c for c in rows if c["label"] == label), key=lambda c: -c["air"] if label == "jump" else c["air"])
+        if clear:
+            take(clear[0])
+    os.makedirs(out_dir, exist_ok=True)
+    k = len([n for n in os.listdir(out_dir) if n.startswith("real_")])
+    entries, written = [], []
+    for c in picked:
+        k += 1
+        name = f"real_{k:03d}_{c['label']}.csv"   # no ride id or take-off time: nothing dates the ride
+        with open(os.path.join(corpus, c["file"])) as src, open(os.path.join(out_dir, name), "w") as dst:
+            for line in src:
+                dst.write(f"# label={c['label']} source=real\n" if line.startswith("#") else line)
+        entries.append({"file": name, "expect": c["verdicts"], "source": "real", "airSec": c["air"],
+                        "note": f"labelled {c['label']} ({c.get('source', 'file')})"})
+        written.append(name)
+    if entries:
+        written.append(os.path.basename(update_manifest(out_dir, entries)))
+    return written

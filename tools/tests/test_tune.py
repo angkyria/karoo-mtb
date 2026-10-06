@@ -112,6 +112,27 @@ class FitTest(unittest.TestCase):
         self.assertEqual(imu.MAX_MEAN_AIR_G, self.result["jumpMaxMeanAirG"])
         self.assertEqual(1.3, self.result["proposed"]["LOW"]["minLandingG"])
 
+    def test_export_picks_boundary_clips_with_per_preset_expect(self):
+        out = tempfile.mkdtemp()
+        written = tune.export_fixtures(self.corpus, self.result, out, limit=6)
+        with open(os.path.join(out, "manifest.json")) as f:
+            fx = json.load(f)["fixtures"]
+        self.assertLessEqual(len(fx), 6)
+        self.assertIn("manifest.json", written)
+        self.assertEqual({"LOW", "MEDIUM", "HIGH"}, set(fx[0]["expect"]))
+        airs = sorted(x["airSec"] for x in fx)
+        self.assertTrue(any(a < 0.30 for a in airs) and any(a > 0.38 for a in airs), airs)   # both sides of the boundary
+        for e in fx:
+            self.assertRegex(e["file"], r"^real_\d{3}_(jump|nojump)\.csv$")       # no ride id or time in the name
+            with open(os.path.join(out, e["file"])) as f:
+                self.assertTrue(f.readline().startswith("# label="))
+
+    def test_cli_fit_with_export(self):
+        from mtbdyn.cli import main
+        out = tempfile.mkdtemp()
+        self.assertEqual(0, main(["--fit", self.corpus, "--export-fixtures", out]))
+        self.assertTrue(os.path.exists(os.path.join(out, "manifest.json")))
+
     def test_spot_weights_share_one_feature(self):
         self.assertEqual([0.5, 0.5, 1.0], tune.weights([{"spot": "a"}, {"spot": "a"}, {"spot": "b"}]))
 
