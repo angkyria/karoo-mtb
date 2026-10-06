@@ -6,8 +6,8 @@ import gzip
 import json
 import math
 import os
+from dataclasses import dataclass
 
-from .groundtruth import resolve
 from .loaders import _index_at
 from .model import Ride
 from .report import hms
@@ -22,6 +22,36 @@ PRESETS = {  # mirror of MtbConfig.kt Sensitivity: take-off g, min airtime s, mi
     "HIGH": (0.55, 0.20, 1.05),
 }
 LAND_G, MAX_AIR, MAX_MEAN_AIR_G, GLITCH, LANDING_WINDOW, COOLDOWN, MIN_JUMP_SPEED = 0.80, 3.0, 0.6, 0.05, 0.35, 0.25, 2.2
+
+
+@dataclass(frozen=True)
+class Thresholds:
+    """The tunable jump gates (a preset, or a point of the --fit search grid)."""
+    takeoff_g: float
+    min_air: float
+    min_landing_g: float
+    max_mean_air_g: float = MAX_MEAN_AIR_G
+
+
+def preset_thresholds(name: str) -> Thresholds:
+    t, a, land = PRESETS[name]
+    return Thresholds(t, a, land, MAX_MEAN_AIR_G)
+
+
+def verdict(fl: dict, th: Thresholds, speed: float | None) -> str:
+    """Same checks, same order as JumpDetector.validate + MtbEngine's take-off speed check. Empty = a jump."""
+    air, mean_g, peak = fl["air"], fl["mean_g"], fl["landing_g"]
+    if air < th.min_air:
+        return "airtime %.2f s < %.2f" % (air, th.min_air)
+    if air > MAX_AIR:
+        return "longer than %.1f s" % MAX_AIR
+    if mean_g > th.max_mean_air_g:
+        return "mean %.2f g in flight" % mean_g
+    if peak < th.min_landing_g:
+        return "landing %.2f g < %.2f" % (peak, th.min_landing_g)
+    if speed is not None and speed < MIN_JUMP_SPEED:
+        return "speed %.1f km/h" % (speed * 3.6)
+    return ""
 
 
 def load_imu(path: str) -> tuple[list[tuple[float, float, float, float]], float]:
@@ -41,9 +71,10 @@ def load_imu(path: str) -> tuple[list[tuple[float, float, float, float]], float]
     return accel, offset or 0.0
 
 
-def find_flights(accel, preset: str) -> list[dict]:
+def find_flights(accel, preset: str | Thresholds) -> list[dict]:
     """Port of ImuProcessor (|a| filter) + JumpDetector; also returns rejected flights with the reason."""
-    takeoff_g, min_air, min_landing = PRESETS[preset]
+    th = preset_thresholds(preset) if isinstance(preset, str) else preset
+    takeoff_g = th.takeoff_g
     out = []
     mag_lp, last_t = 1.0, None
     state, air_start, land_t, sum_g, n_g, peak, cooldown = "GROUND", 0.0, 0.0, 0.0, 0, 0.0, 0.0
@@ -70,9 +101,7 @@ def find_flights(accel, preset: str) -> list[dict]:
                 state, cooldown = "GROUND", t + COOLDOWN
                 air = land_t - air_start
                 mean_g = sum_g / n_g if n_g else 1.0
-                reason = ("airtime %.2f s < %.2f" % (air, min_air) if air < min_air else
-                          "mean %.2f g in flight" % mean_g if mean_g > MAX_MEAN_AIR_G else
-                          "landing %.2f g < %.2f" % (peak, min_landing) if peak < min_landing else "")
+                reason = verdict({"air": air, "mean_g": mean_g, "landing_g": peak}, th, None)
                 if air >= 0.08:
                     out.append({"t": air_start, "air": air, "mean_g": mean_g, "landing_g": peak, "reason": reason})
     return out
@@ -213,6 +242,7 @@ def evaluate_labels(accel, labels: list[dict], speed_at=lambda t: None) -> dict:
         accepted = [f for f in flights if not f["reason"]]
         found = missed = false = 0
         used = set()
+        from .groundtruth import resolve
         matched = {id(lab): fl for fl, lab in resolve(accepted, labels)}
         overruled = {id(lab) for lab in labels if match_label(accepted, lab) is not None and id(lab) not in matched}
         for lab in labels:

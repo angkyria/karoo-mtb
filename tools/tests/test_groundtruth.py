@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
 from mtbdyn import groundtruth, imu  # noqa: E402
+from mtbdyn.model import Ride, Sample  # noqa: E402
 
 WALL0 = 1_790_000_000.0
 
@@ -92,6 +93,40 @@ class MarkerLabelLoadTest(unittest.TestCase):
         names = {1: "mtb_marker_label"}
         out = _markers_from_fit(ev, lambda m: {names.get(k, str(k)): v for k, v in (m.get("developer_fields") or {}).items()})
         self.assertEqual(["nojump", "jump"], [m["label"] for m in out])
+
+
+class CandidatesTest(unittest.TestCase):
+    def test_thresholds_match_presets_and_verdict_order(self):
+        th = imu.preset_thresholds("MEDIUM")
+        self.assertEqual((0.45, 0.28, 1.15, imu.MAX_MEAN_AIR_G), (th.takeoff_g, th.min_air, th.min_landing_g, th.max_mean_air_g))
+        fl = {"air": 0.25, "mean_g": 0.3, "landing_g": 3.0}
+        self.assertTrue(imu.verdict(fl, th, 6.0).startswith("airtime"))
+        self.assertEqual("", imu.verdict(fl, imu.preset_thresholds("HIGH"), 6.0))
+        self.assertTrue(imu.verdict(fl, imu.preset_thresholds("HIGH"), 1.0).startswith("speed"))
+
+    def test_candidates_include_short_flights_and_per_preset_verdicts(self):
+        from test_labels import write_imu
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, "imu.csv.gz")
+        write_imu(p)                                     # 0.6 s jump at 3 s, 0.25 s hop at 23 s
+        accel, _ = imu.load_imu(p)
+        ride = Ride(samples=[Sample(t=WALL0 + i, speed=6.0, lat=35.0, lon=33.0) for i in range(30)])
+        cands = groundtruth.candidates(ride, accel)
+        self.assertEqual(2, len(cands))
+        hop = cands[1]
+        self.assertEqual("", hop["verdicts"]["HIGH"])
+        self.assertTrue(hop["verdicts"]["MEDIUM"].startswith("airtime"))
+        slow = Ride(samples=[Sample(t=WALL0 + i, speed=1.0) for i in range(30)])
+        self.assertEqual([], groundtruth.candidates(slow, accel))   # below take-off speed: never a candidate
+
+    def test_spots_group_passes_within_15_m(self):
+        a = {"t": 1, "lat": 35.0, "lon": 33.0}
+        b = {"t": 2, "lat": 35.00005, "lon": 33.0}       # ~5.5 m north
+        c = {"t": 3, "lat": 35.001, "lon": 33.0}         # ~111 m north
+        groups = groundtruth.spots([a, b, c])
+        self.assertEqual([[1, 2], [3]], [[x["t"] for x in g] for g in groups])
+        nopos = [{"t": 1, "lat": None, "lon": None}, {"t": 2, "lat": None, "lon": None}]
+        self.assertEqual([[1], [2]], [[x["t"] for x in g] for g in groundtruth.spots(nopos)])
 
 
 if __name__ == "__main__":
