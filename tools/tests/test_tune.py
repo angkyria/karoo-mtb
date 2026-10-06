@@ -1,4 +1,5 @@
 """Corpus, fit and fixture export."""
+import json
 import os
 import sys
 import tempfile
@@ -10,7 +11,7 @@ sys.path.insert(0, HERE)
 
 from test_labels import WALL0, write_imu  # noqa: E402
 
-from mtbdyn import groundtruth, tune  # noqa: E402
+from mtbdyn import groundtruth, imu, tune  # noqa: E402
 from mtbdyn.model import Ride, Sample  # noqa: E402
 
 
@@ -54,6 +55,65 @@ class CorpusTest(unittest.TestCase):
         _write_min_ride(d, [])
         self.assertEqual(0, main(["--karoo-dir", d, "--corpus", corpus, "--quiet"]))
         self.assertEqual([], os.listdir(corpus))
+
+
+def synthetic_corpus(corpus, rides=3, per_ride=8):
+    """Jumps of 0.40-0.575 s air vs 0.18-0.25 s rollers: separable, the right minAirSec lies in (0.26, 0.40)."""
+    import make_imu_fixtures
+    os.makedirs(corpus, exist_ok=True)
+    for r in range(rides):
+        for k in range(per_ride):
+            for label, air in (("jump", 0.40 + 0.2 * k / per_ride), ("nojump", 0.18 + 0.08 * k / per_ride)):
+                rows = make_imu_fixtures.ride(7.0, (3.0, air), 3.0 if label == "jump" else 1.8, 0.05, seed=r * 100 + k)
+                base = f"{r}_{k}_{label}"
+                imu.write_snippet(os.path.join(corpus, base + ".csv"), rows, {"label": label})
+                with open(os.path.join(corpus, base + ".json"), "w") as f:
+                    json.dump({"file": base + ".csv", "label": label, "source": "review", "speed": 6.0,
+                               "rate_hz": 100, "ride": str(r), "spot": f"{r}:{k}:{label}", "air": air}, f)
+
+
+class FitTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.corpus = tempfile.mkdtemp()
+        synthetic_corpus(cls.corpus)
+        cls.result = tune.fit(cls.corpus, out=lambda *_a: None)
+
+    def test_guard_with_too_few_labels_proposes_nothing(self):
+        corpus = tempfile.mkdtemp()
+        synthetic_corpus(corpus, rides=1, per_ride=3)
+        lines = []
+        self.assertIsNone(tune.fit(corpus, out=lines.append))
+        self.assertTrue(any("need" in x for x in lines), lines)
+        self.assertFalse(os.path.exists(os.path.join(corpus, "fit-result.json")))
+
+    def test_empty_corpus_hits_the_guard(self):
+        lines = []
+        self.assertIsNone(tune.fit(tempfile.mkdtemp(), out=lines.append))
+        self.assertTrue(any("need" in x for x in lines), lines)
+
+    def test_fit_finds_the_gap_and_meets_targets(self):
+        med = self.result["proposed"]["MEDIUM"]
+        self.assertTrue(0.26 < med["minAirSec"] < 0.40, med)
+        self.assertGreaterEqual(self.result["validation"]["MEDIUM"]["precision"], 0.95)
+        self.assertGreaterEqual(self.result["validation"]["MEDIUM"]["recall"], 0.9)
+        with open(os.path.join(self.corpus, "fit-result.json")) as f:
+            saved = json.load(f)
+        self.assertEqual(48, len(saved["clips"]))
+        self.assertEqual({"LOW", "MEDIUM", "HIGH"}, set(saved["clips"][0]["verdicts"]))
+
+    def test_margin_tie_break_picks_the_middle_of_the_gap(self):
+        self.assertAlmostEqual(0.33, self.result["proposed"]["MEDIUM"]["minAirSec"], delta=0.035)
+
+    def test_thresholds_that_do_not_matter_stay_at_the_current_preset(self):
+        med = self.result["proposed"]["MEDIUM"]
+        self.assertEqual(1.15, med["minLandingG"])    # only airtime separates this corpus
+        # (takeoffG may move: it changes the measured airtime, so the margin legitimately differs per take-off threshold)
+        self.assertEqual(imu.MAX_MEAN_AIR_G, self.result["jumpMaxMeanAirG"])
+        self.assertEqual(1.3, self.result["proposed"]["LOW"]["minLandingG"])
+
+    def test_spot_weights_share_one_feature(self):
+        self.assertEqual([0.5, 0.5, 1.0], tune.weights([{"spot": "a"}, {"spot": "a"}, {"spot": "b"}]))
 
 
 if __name__ == "__main__":
