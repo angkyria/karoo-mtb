@@ -141,7 +141,7 @@ def load_fit(raw: bytes, source: str = "") -> Ride:
     cassette = session.get("rear_gear")
     ride.cassette = sorted(int(x) for x in cassette) if isinstance(cassette, (list, tuple)) else None
     _load_gears(ride, messages.get("event_mesgs", []))
-    ride.markers = _markers_from_fit(messages.get("event_mesgs", []))
+    ride.markers = _markers_from_fit(messages.get("event_mesgs", []), dev)
     ride.devices = _sram_devices(messages.get("device_info_mesgs", []))
 
     # Laps -> sample index where each lap starts.
@@ -167,15 +167,16 @@ def load_fit(raw: bytes, source: str = "") -> Ride:
     return ride
 
 
-def _markers_from_fit(events: Iterable[dict]) -> list[dict]:
-    """The rider's "Mark moment" presses: FIT user_marker events (event 32)."""
+def _markers_from_fit(events: Iterable[dict], dev=lambda e: {}) -> list[dict]:
+    """The rider's "Mark moment" / "Not a jump" presses: FIT user_marker events (event 32)."""
     out = []
     for e in events:
         if e.get("event") not in ("user_marker", 32):
             continue
         t = _ts(e.get("timestamp"))
         if t is not None:
-            out.append({"n": len(out) + 1, "t": t})
+            label = "nojump" if _num(dev(e).get("mtb_marker_label")) == 1 else "jump"
+            out.append({"n": len(out) + 1, "t": t, "label": label})
     return out
 
 
@@ -252,7 +253,7 @@ def load_karoo_dir(path: str) -> Ride:
                 fa_front=_int(num("fa_front")), fa_rear=_int(num("fa_rear")), effort_zone=_int(num("effort_zone")),
                 rear_gear=_int(num("rear_gear")), rear_teeth=_int(num("rear_teeth")),
             ))
-    ride = Ride(samples=samples, source=path, device="Karoo (ride folder)")
+    ride = Ride(samples=samples, source=path, device="Karoo (ride folder)", folder=path)
     ride.has_imu = any(s.rough is not None for s in samples)
     ride.flow_lag = 0  # the CSV already holds aligned values
     laps = sorted({s.lap for s in samples})
@@ -283,7 +284,7 @@ def load_karoo_dir(path: str) -> Ride:
                 m = e.get("marker")
                 if m:
                     ride.markers.append({"n": m["n"], "t": m["wallMs"] / 1000.0, "flight_air": m.get("flightAirSec"),
-                                         "verdict": m.get("flightVerdict")})
+                                         "verdict": m.get("flightVerdict"), "label": m.get("label", "jump")})
                 c = e.get("corner")
                 if c:
                     corners.append({

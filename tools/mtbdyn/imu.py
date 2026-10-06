@@ -7,6 +7,7 @@ import json
 import math
 import os
 
+from .groundtruth import resolve
 from .loaders import _index_at
 from .model import Ride
 from .report import hms
@@ -152,29 +153,40 @@ def load_imu_all(path: str) -> list[tuple[str, float, float, float, float]]:
 
 def read_labels(path: str, day_start: float) -> list[dict]:
     """
-    A labels file: one `time,label` per line, label `jump` or `nojump`; time as UTC clock time
-    (HH:MM:SS, as the --imu report prints take-offs) or epoch seconds. # starts a comment.
+    A labels file: one `time,label[,source]` per line, label `jump` or `nojump`; time as UTC clock
+    time (HH:MM:SS, as the --imu report prints take-offs), epoch seconds or wall_ms (labels.csv
+    written by --review). # starts a comment.
     """
     out = []
     with open(path) as f:
         for line in f:
             line = line.split("#")[0].strip()
-            if not line:
+            if not line or line.startswith("wall_ms"):
                 continue
-            when, label = [p.strip() for p in line.split(",")[:2]]
+            parts = [p.strip() for p in line.split(",")]
+            when, label = parts[0], parts[1] if len(parts) > 1 else ""
+            if label == "":
+                continue   # a --dump row nobody filled in
+            source = parts[2] if len(parts) > 2 and parts[2] in ("review", "button", "file") else "file"
             if ":" in when:
                 h, m, s = when.split(":")
                 t = day_start + int(h) * 3600 + int(m) * 60 + float(s)
             else:
                 t = float(when)
+                if t > 1e11:   # wall_ms
+                    t /= 1000.0
             if label not in ("jump", "nojump"):
                 raise ValueError(f"{path}: label must be jump or nojump, got {label!r}")
-            out.append({"t": t, "label": label, "kind": "file"})
+            out.append({"t": t, "label": label, "kind": "file", "source": source})
     return out
 
 
 def labels_for(ride: Ride | None, labels_path: str | None, day_start: float) -> list[dict]:
-    labels = [{"t": m["t"], "label": "jump", "kind": "marker", "n": m["n"]} for m in (ride.markers if ride else [])]
+    labels = [{"t": m["t"], "label": m.get("label", "jump"), "kind": "marker", "source": "button", "n": m["n"]}
+              for m in (ride.markers if ride else [])]
+    if labels_path is None and ride is not None and ride.folder:
+        auto = os.path.join(ride.folder, "labels.csv")
+        labels_path = auto if os.path.exists(auto) else None
     if labels_path:
         labels += read_labels(labels_path, day_start)
     return sorted(labels, key=lambda x: x["t"])
@@ -201,8 +213,12 @@ def evaluate_labels(accel, labels: list[dict], speed_at=lambda t: None) -> dict:
         accepted = [f for f in flights if not f["reason"]]
         found = missed = false = 0
         used = set()
+        matched = {id(lab): fl for fl, lab in resolve(accepted, labels)}
+        overruled = {id(lab) for lab in labels if match_label(accepted, lab) is not None and id(lab) not in matched}
         for lab in labels:
-            hit = match_label(accepted, lab)
+            if id(lab) in overruled:
+                continue   # another label (a review) decided this flight
+            hit = matched.get(id(lab))
             if hit:
                 used.add(id(hit))
             if lab["label"] == "jump":
