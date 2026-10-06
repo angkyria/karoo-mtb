@@ -2,6 +2,7 @@ package io.github.angkyria.karoomtb.karoo
 
 import android.util.Log
 import io.github.angkyria.karoomtb.BuildConfig
+import io.github.angkyria.karoomtb.engine.MarkLabel
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.extension.DataTypeImpl
 import io.hammerhead.karooext.extension.KarooExtension
@@ -49,7 +50,8 @@ class MtbExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
     override fun onBonusAction(actionId: String) {
         Log.i(TAG, "bonus action $actionId")
         when (actionId) {
-            ACTION_MARK -> controller?.markMoment()
+            ACTION_MARK -> controller?.markMoment(MarkLabel.JUMP)
+            ACTION_NOJUMP -> controller?.markMoment(MarkLabel.NOJUMP)
         }
     }
 
@@ -88,6 +90,7 @@ class MtbExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
     companion object {
         const val EXTENSION_ID = "karoo-mtb"
         const val ACTION_MARK = "mark"
+        const val ACTION_NOJUMP = "nojump"
         private const val TAG = "MtbExtension"
     }
 }

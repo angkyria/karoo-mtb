@@ -1,5 +1,6 @@
 package io.github.angkyria.karoomtb.engine
 
+import io.github.angkyria.karoomtb.fit.MtbFitFields
 import io.github.angkyria.karoomtb.notify.SummaryFormatter
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -92,5 +93,25 @@ class MarkerTest {
         assertEquals(MarkLabel.JUMP, m.label)
         val json = Json.encodeToString(Marker.serializer(), m.copy(label = MarkLabel.NOJUMP))
         assertTrue(json, json.contains("\"label\":\"nojump\""))
+    }
+
+    @Test
+    fun `toast title names the label and detail the verdict`() {
+        val sim = RideSim().apply { start() }
+        sim.ride(10, speed = { 6.0 })
+        sim.jumpIn(1.0, 0.6)
+        sim.ride(4, speed = { 6.0 })
+        val m = sim.engine.markMoment(sim.wallMs(), sim.elapsedMs, MarkLabel.NOJUMP)!!
+        assertEquals("Not a jump #1", SummaryFormatter.markerTitle(m))
+        assertTrue(SummaryFormatter.markerDetail(m).endsWith("counted"))
+        assertEquals("Jump #2", SummaryFormatter.markerTitle(sim.mark()))
+    }
+
+    @Test
+    fun `marker label FIT field comes after every existing field`() {
+        val all = MtbFitFields.all()
+        assertEquals("mtb_marker_label", all.last().fieldName)
+        assertEquals(all.size - 1, all.last().fieldDefinitionNumber.toInt())
+        assertEquals("mtb_marker", all[all.size - 2].fieldName)
     }
 }
