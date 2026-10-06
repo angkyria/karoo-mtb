@@ -16,6 +16,7 @@ from .loaders import _num, load_fit, load_karoo_dir, read_fit_bytes, rescore
 from .model import Ride
 from .report import Units, report_text, write_csv, write_html
 from .summary import summarize
+from .tune import DEFAULT_CORPUS, add_ride
 
 
 # --------------------------------------------------------------------------------------------
@@ -34,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--review", action="store_true",
                    help="with --karoo-dir: label every candidate flight jump / not a jump (saved to labels.csv in the ride folder)")
     p.add_argument("--dump", metavar="CSV", help="with --review: write the candidates to CSV (fill in the label column) instead of asking")
+    p.add_argument("--corpus", nargs="?", const=DEFAULT_CORPUS, metavar="DIR",
+                   help="with --karoo-dir: add this ride's labelled flights to the private corpus (default ~/karoo-mtb-corpus)")
     p.add_argument("--icu", metavar="ID|latest", help="analyse an intervals.icu activity (needs INTERVALS_API_KEY)")
     p.add_argument("--icu-athlete", default=os.environ.get("INTERVALS_ATHLETE_ID", "0"), help="athlete id (default 0 = you)")
     p.add_argument("--icu-key", default=os.environ.get("INTERVALS_API_KEY"), help="intervals.icu API key")
@@ -112,12 +115,15 @@ def main(argv: list[str] | None = None) -> int:
     else:
         p.error("give a FIT file, --karoo-dir or --icu")
 
-    if a.review:
+    if a.review or a.corpus:
         if not a.karoo_dir:
-            p.error("--review needs --karoo-dir")
+            p.error("--review / --corpus need --karoo-dir")
         imu_path = os.path.join(a.karoo_dir, "imu.csv.gz")
         if not os.path.exists(imu_path):
             print(f"no raw sensor log at {imu_path} (enable 'Debug: save raw sensor data' on the Karoo)")
+            return 0
+        if a.corpus:
+            print(f"{add_ride(ride, imu_path, a.corpus)} labelled flights of this ride in {a.corpus}")
             return 0
         from .groundtruth import dump_candidates, review
         accel, _ = load_imu(imu_path)
