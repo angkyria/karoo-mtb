@@ -5,8 +5,7 @@ import datetime as dt
 import math
 import os
 
-from .imu import (MIN_JUMP_SPEED, PRESETS, Thresholds, find_flights, labels_for, thresholds_for,
-                  trail_schedule, verdict)
+from .imu import MIN_JUMP_SPEED, PRESETS, Thresholds, find_flights, labels_for, thresholds_for, trail_schedule, verdict
 from .loaders import _index_at
 
 LABELS_FILE = "labels.csv"
