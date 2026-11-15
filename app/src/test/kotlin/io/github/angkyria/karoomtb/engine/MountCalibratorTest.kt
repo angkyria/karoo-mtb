@@ -28,8 +28,8 @@ class MountCalibratorTest {
         val rnd = Random(11)
         repeat(seconds) { i ->
             val v = 6.0
-            val yaw = 0.4 * sin(i / 5.0)                 // turning left and right
-            val push = v * yaw                           // m/s² towards the inside of the corner
+            val yaw = 0.4 * sin(i / 5.0) // turning left and right
+            val push = v * yaw // m/s² towards the inside of the corner
             val brake = if (i % 7 == 0) -2.0 else 0.0
             val a = sensor(brake, push, Scoring.G)
             for (k in 0..2) a[k] += rnd.nextGaussian() * noise
