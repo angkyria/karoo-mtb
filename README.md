@@ -501,6 +501,12 @@ levels). Synthetic rides are in `CalibrationTest.kt`:
   (`imu.csv.gz`, ~3 MB/h). Ride a few known jumps, pull the ride folder and run
   `mtb_analyze.py --karoo-dir <ride> --imu` to see what each sensitivity would detect. On a
   Karoo 2 the real rate is about 87 Hz; the detector adapts to whatever rate the sensor delivers.
+* **Pin your jumps on a map** ([jump analyser](https://angkyria.github.io/karoo-mtb/analyser/)).
+  Pull the `rides` folder, open it in the analyser (it runs in the browser; nothing is uploaded) and
+  click where you jumped. For every pin it lists each pass (track within 15 m) and whether the
+  Karoo counted it (a jump that took off within 2.5 s). Pins stay in the browser; *Export pins*
+  writes `jump-spots.json`, and `mtb_analyze.py --pins jump-spots.json --history rides/` prints
+  the same report.
 * **Label your jumps.** Press *Mark moment* right after each real jump (the alert already says if
   it counted). With the raw sensor log on, `--imu` then reports per sensitivity how many marked
   jumps it finds and how many detections had no mark. For things that were *not* jumps (rough

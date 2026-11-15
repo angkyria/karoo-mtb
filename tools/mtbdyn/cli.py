@@ -14,6 +14,7 @@ from .icu import IntervalsIcu, description_block, merged_description, parse_fiel
 from .imu import _day_start, export_snippets, imu_report, labels_for, load_imu
 from .loaders import _num, load_fit, load_karoo_dir, read_fit_bytes, rescore
 from .model import Ride
+from .pins import load_pins, pins_text
 from .report import Units, report_text, write_csv, write_html
 from .summary import summarize
 from .tune import DEFAULT_CORPUS, add_ride, export_fixtures, fit
@@ -63,6 +64,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--icu-history", type=int, metavar="DAYS", help="the same across the rides of the last DAYS on intervals.icu")
     p.add_argument("--service-json", help="service.json pulled from the Karoo: service status from the Karoo's tracker")
     p.add_argument("--trails-json", help="trails.json pulled from the Karoo: trails with runs and personal bests")
+    p.add_argument("--pins", metavar="JSON",
+                   help="jump-spots.json from the browser analyser: every pass over each pin and whether the Karoo counted it "
+                        "(rides from --karoo-dir or --history)")
     a = p.parse_args(argv)
     units = Units(a.imperial)
 
@@ -71,6 +75,13 @@ def main(argv: list[str] | None = None) -> int:
         if result and a.export_fixtures:
             for name in export_fixtures(a.fit_corpus, result, a.export_fixtures):
                 print(f"wrote {os.path.join(a.export_fixtures, name)}")
+        return 0
+
+    if a.pins:
+        paths = ride_paths(a.history or ([a.karoo_dir] if a.karoo_dir else []))
+        if not paths:
+            p.error("--pins needs --karoo-dir or --history")
+        print(pins_text([(os.path.basename(path.rstrip(os.sep)), load_any(path)) for path in paths], load_pins(a.pins)))
         return 0
 
     if a.trails_json:

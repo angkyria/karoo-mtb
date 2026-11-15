@@ -81,6 +81,9 @@ jobs:
       - name: intervals.icu script tests
         run: node intervals-icu/test/run.mjs
 
+      - name: Jump analyser tests
+        run: node tools/tests/pins.test.mjs
+
       - name: Website intervals.icu guide is up to date
         run: python tools/make_site_guide.py --check
 
