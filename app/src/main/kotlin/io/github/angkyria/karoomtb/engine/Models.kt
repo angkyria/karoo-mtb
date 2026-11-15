@@ -25,6 +25,12 @@ data class Jump(
     val score: Double,
     val lat: Double? = null,
     val lon: Double? = null,
+    /** Height lost from take-off to landing from the raw barometer (m), measurement only. */
+    val baroDropM: Double? = null,
+    /** In-flight rotation along the bike's axes ([FlightRotation]) once the mount is calibrated. */
+    val pitchDeg: Double? = null,
+    val yawDeg: Double? = null,
+    val rollDeg: Double? = null,
 )
 
 /** What the rider said about the flight before a "mark" press. */

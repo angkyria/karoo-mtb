@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jump Analyser · MTB Dynamics</title>
+<meta name="description" content="Open your Karoo ride folders in the browser, pin your jumps on the map and see how many passes the Karoo counted. Nothing is uploaded.">
+<link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../site.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --jump: #2e7d32; --nojump: #c62828; --det: #1565c0; --track: #d6249f; }
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; background: var(--bg); }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--card); flex-wrap: wrap; }
+  .bar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--fg); }
+  .bar .brand img { width: 24px; height: 24px; }
+  .bar .spacer { flex: 1; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line);
+         background: var(--card); color: var(--fg); font: inherit; font-size: 14px; cursor: pointer; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn:hover { filter: brightness(.97); }
+  .app { flex: 1; display: flex; min-height: 0; }
+  .side { width: 340px; padding: 14px 16px; border-right: 1px solid var(--line); overflow: auto; background: var(--card); font-size: 14px; }
+  #map { flex: 1; min-height: 360px; }
+  .side h2 { font-size: 15px; margin: 16px 0 6px; }
+  .side h2:first-child { margin-top: 0; }
+  .rides { list-style: none; margin: 0; padding: 0; }
+  .rides li { padding: 7px 8px; border-radius: 8px; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
+  .rides li:hover { background: var(--bg2); }
+  .rides li.on { background: var(--accent-soft); }
+  .rides .sub { color: var(--muted); font-size: 12.5px; grid-column: 1 / -1; }
+  .rides .score { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .totals { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; padding: 10px 12px; background: var(--bg2); border-radius: 10px; }
+  .totals b { text-align: right; font-variant-numeric: tabular-nums; }
+  .legend div { display: flex; align-items: center; gap: 8px; margin: 3px 0; color: var(--muted); }
+  .sw { width: 22px; height: 4px; border-radius: 2px; background: var(--track); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #0004; flex: none; }
+  .empty { padding: 28px 18px; text-align: center; color: var(--muted); }
+  .empty .btn { margin-top: 12px; }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .pop { font: 13px/1.45 system-ui, sans-serif; color: #17191a; }
+  .pop button { margin: 6px 4px 0 0; padding: 4px 9px; border: 1px solid #ccd; border-radius: 6px; background: #fff; cursor: pointer; font: inherit; }
+  .pop button.j { border-color: var(--jump); color: var(--jump); }
+  .pop button.n { border-color: var(--nojump); color: var(--nojump); }
+  .pop button.on.j { background: var(--jump); color: #fff; }
+  .pop button.on.n { background: var(--nojump); color: #fff; }
+  .pop .miss { color: var(--nojump); font-weight: 600; }
+  .pop .hit { color: var(--jump); }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #17191a; color: #fff; padding: 8px 14px;
+           border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9999; font-size: 14px; }
+  @media (max-width: 760px) {
+    .app { flex-direction: column; }
+    .side { width: auto; max-height: 42vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="brand" href="../"><img src="../img/icon.svg" alt="">MTB Dynamics</a>
+  <span class="muted small">Jump analyser</span>
+  <span class="spacer"></span>
+  <label class="btn primary">Open rides folder<input id="folder" type="file" webkitdirectory multiple hidden></label>
+</div>
+<div class="app">
+  <aside class="side">
+    <div id="rides-box">
+      <h2>Rides</h2>
+      <div id="empty" class="empty">
+        Pull the ride folders from the Karoo:<br>
+        <code>adb pull /sdcard/Android/data/io.github.angkyria.karoomtb/files/rides</code><br>
+        then open the <code>rides</code> folder here.<br>
+        <label class="btn primary">Open rides folder<input id="folder2" type="file" webkitdirectory multiple hidden></label>
+        <div class="note">Your files stay on this computer. Only the map tiles are downloaded.</div>
+      </div>
+      <ul class="rides" id="rides"></ul>
+    </div>
+    <h2>Your jump pins</h2>
+    <div class="totals" id="totals"></div>
+    <div class="note">Click the map where you jumped to add a pin. Drag to move it; click it for <i>Not a jump</i> or delete.
+      A pass is the track within 15 m of a pin; it is counted when a Karoo jump took off within 2.5 s.</div>
+    <div class="row">
+      <button class="btn" id="export">Export pins</button>
+      <label class="btn">Import pins<input id="import" type="file" accept=".json,application/json" hidden></label>
+    </div>
+    <div class="note">Export saves <code>jump-spots.json</code> for <code>mtb_analyze.py --pins jump-spots.json --history rides/</code>.</div>
+    <h2>Map</h2>
+    <div class="legend">
+      <div><span class="sw"></span>your ride (each path once)</div>
+      <div><span class="dot" style="background:var(--det);width:9px;height:9px"></span>jump the Karoo counted</div>
+      <div><span class="dot" style="background:var(--jump)"></span>your jump pin</div>
+      <div><span class="dot" style="background:var(--nojump)"></span>your not-a-jump pin</div>
+    </div>
+  </aside>
+  <div id="map"></div>
+</div>
+<div id="toast"></div>
+<script type="module">
+import { rideReport, singlePass, parseTrack, parseJumps, PASS_RADIUS_M } from './pins.mjs'
+
+const STORE = 'karoo-mtb-jump-spots'
+const $ = id => document.getElementById(id)
+const toast = t => { const e = $('toast'); e.textContent = t; e.style.opacity = 1; clearTimeout(e._t); e._t = setTimeout(() => (e.style.opacity = 0), 1800) }
+const hms = s => new Date(s * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+let labels = { spots: [], detections: {} }
+try { const saved = JSON.parse(localStorage.getItem(STORE)); if (saved && Array.isArray(saved.spots)) labels = saved } catch {}
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(labels)) } catch {} ; refresh() }
+
+const map = L.map('map').setView([35.13, 33.39], 12)
+const tiles = {
+  'Trails (CyclOSM)': L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 20, attribution: '© CyclOSM, © OpenStreetMap' }),
+  'Clean': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 21, maxNativeZoom: 20, attribution: '© CARTO, © OpenStreetMap' }),
+  'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 21, maxNativeZoom: 18, attribution: 'Esri World Imagery' }),
+}
+tiles['Trails (CyclOSM)'].addTo(map)
+L.control.layers(tiles).addTo(map)
+const trackLayer = L.layerGroup().addTo(map), jumpLayer = L.layerGroup().addTo(map), pinLayer = L.layerGroup().addTo(map)
+
+let rides = [], current = null
+
+async function openFolder (files) {
+  const dirs = new Map()
+  for (const f of files) {
+    const parts = (f.webkitRelativePath || f.name).split('/')
+    const name = parts.pop(), dir = parts.join('/')
+    if (!['samples.csv', 'events.jsonl', 'summary.json', 'meta.json'].includes(name)) continue
+    if (!dirs.has(dir)) dirs.set(dir, {})
+    dirs.get(dir)[name] = f
+  }
+  const loaded = []
+  for (const [dir, f] of dirs) {
+    if (!f['samples.csv']) continue
+    const track = parseTrack(await f['samples.csv'].text())
+    if (track.length < 2) continue
+    const jumps = f['events.jsonl'] ? parseJumps(await f['events.jsonl'].text()) : []
+    let summary = {}
+    try { summary = f['summary.json'] ? JSON.parse(await f['summary.json'].text()) : {} } catch {}
+    loaded.push({ id: dir.split('/').pop(), track, jumps, km: (summary.distanceM || 0) / 1000, start: track[0][0] })
+  }
+  if (!loaded.length) { toast('No Karoo ride folders (samples.csv) in that folder'); return }
+  rides = loaded.sort((a, b) => b.start - a.start)
+  $('empty').hidden = true
+  select(rides[0])
+  toast(`${rides.length} rides loaded`)
+}
+for (const id of ['folder', 'folder2']) $(id).addEventListener('change', e => openFolder([...e.target.files]))
+
+function report (ride) {
+  return rideReport(ride.track, ride.jumps.map(j => [j.n, j.t]), labels.spots)
+}
+
+function select (ride) {
+  current = ride
+  trackLayer.clearLayers(); jumpLayer.clearLayers()
+  L.polyline(singlePass(ride.track), { color: getComputedStyle(document.documentElement).getPropertyValue('--track').trim() || '#d6249f', weight: 3, opacity: .9, interactive: false }).addTo(trackLayer)
+  for (const j of ride.jumps) {
+    if (j.lat == null) continue
+    L.circleMarker([j.lat, j.lon], { radius: 4, color: '#fff', weight: 1, fillColor: '#1565c0', fillOpacity: 1, interactive: false }).addTo(jumpLayer)
+  }
+  map.fitBounds(L.latLngBounds(ride.track.map(p => [p[1], p[2]])), { padding: [30, 30] })
+  refresh()
+}
+
+function refresh () {
+  // ride list
+  const ul = $('rides'); ul.innerHTML = ''
+  let passes = 0, counted = 0, nojump = 0
+  for (const r of rides) {
+    const rep = report(r)
+    passes += rep.jumpPasses; counted += rep.counted; nojump += rep.nojumpCounted
+    const li = document.createElement('li')
+    if (r === current) li.className = 'on'
+    const d = new Date(r.start * 1000)
+    li.innerHTML = `<span>${d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+      <span class="score">${rep.jumpPasses ? `${rep.counted}/${rep.jumpPasses}` : ''}</span>
+      <span class="sub">${r.km.toFixed(1)} km · ${r.jumps.length} jumps counted${rep.elsewhere.length && rep.jumpPasses ? ` · ${rep.elsewhere.length} away from your pins` : ''}</span>`
+    li.onclick = () => select(r)
+    ul.append(li)
+  }
+  const nj = labels.spots.filter(s => s.label === 'jump').length
+  $('totals').innerHTML = `<span>Jump pins</span><b>${nj}</b><span>Not-a-jump pins</span><b>${labels.spots.length - nj}</b>` +
+    (rides.length ? `<span>Passes over jump pins</span><b>${passes}</b><span>…counted by the Karoo</span><b>${counted}${passes ? ` (${Math.round(100 * counted / passes)} %)` : ''}</b>` +
+      `<span>…missed</span><b>${passes - counted}</b>` + (nojump ? `<span>Not-a-jump pins counted</span><b>${nojump}</b>` : '') : '')
+  drawPins()
+}
+
+function drawPins () {
+  pinLayer.clearLayers()
+  const rep = current ? report(current) : null
+  labels.spots.forEach((s, k) => {
+    const color = s.label === 'jump' ? '#2e7d32' : '#c62828'
+    const icon = L.divIcon({ className: '', html: `<div class="dot" style="background:${color};width:20px;height:20px"></div>`, iconSize: [20, 20], iconAnchor: [10, 10] })
+    const m = L.marker([s.lat, s.lon], { icon, draggable: true }).addTo(pinLayer)
+    m.on('dragend', () => { const p = m.getLatLng(); s.lat = p.lat; s.lon = p.lng; save() })
+    m.bindPopup(() => {
+      const d = document.createElement('div'); d.className = 'pop'
+      const mine = rep ? rep.passes.filter(p => p.pin === k) : []
+      const list = mine.map(p => `${hms(p.t)} · ${p.d.toFixed(1)} m · ${p.jump !== null ? `<span class="${s.label === 'jump' ? 'hit' : 'miss'}">counted #${p.jump}</span>` : `<span class="${s.label === 'jump' ? 'miss' : 'hit'}">${s.label === 'jump' ? 'missed' : 'not counted'}</span>`}`).join('<br>')
+      d.innerHTML = `<b>${s.label === 'jump' ? 'Your jump' : 'Not a jump'}</b><br>` +
+        (current ? (list || `no pass on this ride (within ${PASS_RADIUS_M} m)`) : 'open your rides to see the passes')
+      const mk = (cls, text, fn) => { const b = document.createElement('button'); b.className = cls; b.textContent = text; b.onclick = () => { fn(); map.closePopup(); save() }; return b }
+      d.append(document.createElement('br'),
+        mk('j' + (s.label === 'jump' ? ' on' : ''), 'Jump', () => { s.label = 'jump' }),
+        mk('n' + (s.label === 'nojump' ? ' on' : ''), 'Not a jump', () => { s.label = 'nojump' }),
+        mk('', 'Delete', () => { labels.spots.splice(labels.spots.indexOf(s), 1) }))
+      return d
+    })
+  })
+}
+
+map.on('click', e => {
+  labels.spots.push({ id: Date.now().toString(36), lat: e.latlng.lat, lon: e.latlng.lng, label: 'jump', ride: current ? current.id : null, created: new Date().toISOString() })
+  save(); toast('Jump pin added')
+})
+
+$('export').onclick = () => {
+  const blob = new Blob([JSON.stringify(labels, null, 1)], { type: 'application/json' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'jump-spots.json'; a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+}
+$('import').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return
+  try {
+    const data = JSON.parse(await f.text())
+    const have = new Set(labels.spots.map(s => s.id))
+    const add = (data.spots || []).filter(s => typeof s.lat === 'number' && typeof s.lon === 'number' && !have.has(s.id))
+    labels.spots.push(...add)
+    save(); toast(`${add.length} pins imported`)
+    if (!current && add.length) map.setView([add[0].lat, add[0].lon], 15)
+  } catch { toast('Not a jump-spots.json file') }
+  e.target.value = ''
+})
+
+refresh()
+if (labels.spots.length) map.setView([labels.spots[0].lat, labels.spots[0].lon], 15)
+</script>
+</body>
+</html>

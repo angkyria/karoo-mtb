@@ -15,13 +15,14 @@ import io.github.angkyria.karoomtb.storage.ImuLogger
 import kotlin.math.abs
 
 /**
- * Streams the Karoo's accelerometer and gyroscope into the engine on a dedicated thread.
- * Both Karoo 2 and Karoo 3 expose them through the normal Android SensorManager.
+ * Streams the Karoo's accelerometer, gyroscope and barometer into the engine on a dedicated
+ * thread. Both Karoo 2 and Karoo 3 expose them through the normal Android SensorManager.
  */
 class ImuSensorSource(context: Context, private val engine: MtbEngine) : SensorEventListener {
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val gyroscope: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+    private val barometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE)
     private var thread: HandlerThread? = null
 
     /** Sensor clocks are usually elapsedRealtimeNanos; if a device uses another base we shift it. */
@@ -54,7 +55,14 @@ class ImuSensorSource(context: Context, private val engine: MtbEngine) : SensorE
                 false
             }
         }
-        Log.i(TAG, "IMU started accel=${accelerometer?.name} gyro=${gyroscope?.name} ok=$ok")
+        barometer?.let { sensor ->
+            try {
+                sensorManager.registerListener(this, sensor, PRESSURE_PERIOD_US, MAX_REPORT_LATENCY_US, handler)
+            } catch (e: SecurityException) {
+                Log.e(TAG, "registerListener(${sensor.name}) denied", e)
+            }
+        }
+        Log.i(TAG, "IMU started accel=${accelerometer?.name} gyro=${gyroscope?.name} baro=${barometer?.name} ok=$ok")
         return ok.any { it }
     }
 
@@ -81,6 +89,10 @@ class ImuSensorSource(context: Context, private val engine: MtbEngine) : SensorE
                 engine.onGyro(t, v[0], v[1], v[2])
                 rawLogger?.write('g', t, v[0], v[1], v[2])
             }
+            Sensor.TYPE_PRESSURE -> {
+                engine.onPressure(t, v[0])
+                rawLogger?.write('p', t, v[0], 0f, 0f)
+            }
         }
     }
 
@@ -91,6 +103,9 @@ class ImuSensorSource(context: Context, private val engine: MtbEngine) : SensorE
 
         /** 100 Hz requested; the hardware may deliver less (the engine adapts to the real rate). */
         private const val SAMPLING_PERIOD_US = 10_000
+
+        /** 25 Hz asked of the barometer (Karoo 2's GMP102 delivers ~13 Hz). */
+        private const val PRESSURE_PERIOD_US = 40_000
 
         /** Batch in the sensor FIFO for up to 100 ms to save wake-ups. */
         private const val MAX_REPORT_LATENCY_US = 100_000
