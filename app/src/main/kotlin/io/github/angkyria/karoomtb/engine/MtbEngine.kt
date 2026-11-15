@@ -53,6 +53,11 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
     private val imu = ImuProcessor()
     private val jumpDetector = JumpDetector(config)
     private val trailMode = TrailMode(config)
+    private val pressureTrack = PressureTrack()
+    private val mount = MountCalibrator()
+
+    /** Sensor-clock take-off and landing of jumps still waiting for [refineJumpHeights]. */
+    private val flightTimes = HashMap<Int, Pair<Double, Double>>()
     private var cornerDetector = CornerDetector()
 
     // Latest context from the Karoo.
@@ -141,6 +146,9 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         jumpDetector.reset()
         trailMode.reconfigure(newConfig)
         trailMode.reset()
+        pressureTrack.reset()
+        mount.reset()
+        flightTimes.clear()
         cornerDetector = CornerDetector()
         rideStartWallMs = wallMs
         rideStartElapsedMs = elapsedMs
@@ -412,6 +420,11 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         landed?.let { jumpListener?.invoke(it) }
     }
 
+    /** Raw barometer sample (hPa), for [Jump.baroDropM]. */
+    fun onPressure(timestampNs: Long, hpa: Float) = synchronized(lock) {
+        pressureTrack.add(timestampNs / 1e9, hpa.toDouble())
+    }
+
     fun onGyro(timestampNs: Long, x: Float, y: Float, z: Float) = synchronized(lock) {
         hasGyroscope = true
         val tSec = timestampNs / 1e9
@@ -461,6 +474,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         val rough = if (imuSecond.accelSamples >= 5) imuSecond.roughG else Double.NaN
         trailMode.onSecond(rough)
         jumpDetector.trail = trailMode.active
+        imuSecond.meanAccel?.let { if (moving && !airborneThisSecond) mount.onSecond(it, if (gyroOk) yawRate else Double.NaN, v) }
         val grit = (if (moving) Scoring.gritPerSecond(grade, curvature, rough) * dt else 0.0) + gritBonus
         gritBonus = 0.0
 
@@ -613,6 +627,9 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             return null
         }
         val distance = v0 * raw.airSec
+        val forward = mount.forward
+        val up = mount.up
+        val rotation = if (forward != null && up != null) FlightRotation.of(doubleArrayOf(raw.rotX, raw.rotY, raw.rotZ), forward, up) else null
         val jump = Jump(
             n = jumps.size + 1,
             takeoffWallMs = rideStartWallMs + (takeoffElapsedMs - rideStartElapsedMs),
@@ -627,10 +644,14 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             score = Scoring.jumpScore(raw.airSec, distance, raw.rotations),
             lat = lat.takeUnless { it.isNaN() },
             lon = lon.takeUnless { it.isNaN() },
+            pitchDeg = rotation?.pitchDeg,
+            yawDeg = rotation?.yawDeg,
+            rollDeg = rotation?.rollDeg,
         )
         jumps += jump
         mapVersion++
         jumpsAwaitingAltitude += jumps.lastIndex
+        flightTimes[jumps.lastIndex] = raw.takeoffSec to raw.landSec
         jumpsForNextRecord += jump
         gritBonus += Scoring.GRIT_PER_AIR_SECOND * raw.airSec
         return jump
@@ -658,7 +679,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             val landMs = takeoffMs + (jump.airSec * 1000.0).roundToLong()
             if (nowElapsedMs < landMs + ALTITUDE_SETTLE_MS) continue
             iterator.remove()
-            val refined = withBarometricDrop(jump, takeoffMs, landMs)
+            val baro = flightTimes.remove(index)?.let { (up, down) -> pressureTrack.dropM(up, down) }
+            val refined = withBarometricDrop(jump, takeoffMs, landMs).copy(baroDropM = baro)
             jumps[index] = refined
             storageJumps += refined
         }

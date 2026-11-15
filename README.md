@@ -98,7 +98,7 @@ reminders when something is due):
 | Live descents, trails / PBs, map layer, Mark moment, intervals.icu push, debug bundle (v0.3) | 🟡 unit-tested against simulated rides and the karoo-ext SDK; not on a real ride yet |
 | Karoo 3 | ⚪ not tested yet (same SDK, should work) |
 
-107 Kotlin, 77 Python and 16 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
+117 Kotlin, 90 Python and 21 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
 
 ---
 
@@ -496,6 +496,14 @@ levels). Synthetic rides are in `CalibrationTest.kt`:
   Fitted on 30 passes over 5 jump spots marked on a map: on *High* the trail gates find 25 of
   them instead of 13, with no extra detections elsewhere. The choice is made at take-off;
   `--imu` marks trail-mode jumps with "· trail".
+* **Barometer and mount (v0.6, measurement only).** The raw barometer (Karoo 2: ~13 Hz,
+  ±25 cm per sample) gives each jump a `baroDropM`: the median height a second before take-off
+  minus a second after landing. Small hops are below what it can see; drops of ~0.5 m are not.
+  The Karoo also finds the bike's forward axis by itself from corners (the sideways push of
+  speed × turn rate), after about 60 s of cornering, and splits each flight's rotation into
+  `pitchDeg` (+ nose down), `yawDeg` (+ left) and `rollDeg` (+ right). Both are stored in
+  `events.jsonl` and shown by `--imu` (with the raw log on); jump counts and heights do not use
+  them yet.
 * **Segment split** (default 15 m): smaller for short, punchy trails.
 * **Debug: save raw sensor data** stores the 100 Hz accelerometer / gyroscope with each ride
   (`imu.csv.gz`, ~3 MB/h). Ride a few known jumps, pull the ride folder and run

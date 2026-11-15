@@ -14,6 +14,10 @@ data class RawJump(
     val rotationDeg: Double,
     /** Judged with the trail gates ([TrailMode]). */
     val trail: Boolean = false,
+    /** Integrated gyro over the flight (rad, sensor frame), split along the bike by [FlightRotation]. */
+    val rotX: Double = 0.0,
+    val rotY: Double = 0.0,
+    val rotZ: Double = 0.0,
 ) {
     val rotations: Int get() = floor((rotationDeg + 60.0) / 360.0).toInt()
 }
@@ -160,7 +164,7 @@ class JumpDetector(private var config: MtbConfig) {
         if (air >= MIN_FLIGHT_SEC) remember(Flight(airStart, air, meanG, peakLandingG, reason, flightTrail))
         if (reason.isNotEmpty()) return null
         val rotationDeg = Math.toDegrees(sqrt(rotX * rotX + rotY * rotY + rotZ * rotZ))
-        return RawJump(airStart, landTime, air, meanG, peakLandingG, rotationDeg, flightTrail)
+        return RawJump(airStart, landTime, air, meanG, peakLandingG, rotationDeg, flightTrail, rotX, rotY, rotZ)
     }
 
     private fun takeoffG(onTrail: Boolean) = if (onTrail) config.sensitivity.trailTakeoffG else config.sensitivity.takeoffG

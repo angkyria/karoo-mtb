@@ -13,6 +13,8 @@ data class ImuSecond(
     val peakG: Double,
     val accelSamples: Int,
     val gyroSamples: Int,
+    /** Mean specific force over the second (m/s², sensor frame), null without samples. */
+    val meanAccel: DoubleArray? = null,
 )
 
 /**
@@ -58,6 +60,7 @@ class ImuProcessor {
     private var peakG = 0.0
     private var accelSamples = 0
     private var gyroSamples = 0
+    private val accelSum = DoubleArray(3)
 
     /**
      * @param freezeGravity true while airborne: free fall would otherwise drag the "up"
@@ -97,6 +100,9 @@ class ImuProcessor {
             dynCount++
         }
         peakG = max(peakG, magG)
+        accelSum[0] += x
+        accelSum[1] += y
+        accelSum[2] += z
         accelSamples++
     }
 
@@ -127,7 +133,9 @@ class ImuProcessor {
             peakG = peakG,
             accelSamples = accelSamples,
             gyroSamples = gyroSamples,
+            meanAccel = if (accelSamples > 0) DoubleArray(3) { accelSum[it] / accelSamples } else null,
         )
+        accelSum.fill(0.0)
         dynSqSum = 0.0
         dynCount = 0
         yawIntegral = 0.0

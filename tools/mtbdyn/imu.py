@@ -167,6 +167,14 @@ def imu_report(ride: Ride | None, path: str, labels_path: str | None = None) -> 
         return sorted(window)[len(window) // 2] if window else None
 
     trail_at = trail_schedule(ride)
+    from .mount import baro_drop, calibrate, flight_rotation, load_sensors
+    sensors = load_sensors(path)
+    cal = calibrate(ride, accel, sensors["g"]) if ride and ride.samples else None
+    forward, up = (cal.forward, cal.up) if cal else (None, None)
+    if cal:
+        lines.append(f"Mount: forward axis {', '.join(f'{c:+.2f}' for c in forward)} from {cal.corners} corner seconds "
+                     f"(agreement {cal.agreement:.2f})" if forward else f"Mount: not calibrated ({cal.corners} corner seconds, need 60)")
+    lines.append(f"Barometer: {len(sensors['p'])} samples" if sensors["p"] else "Barometer: not in this log (app < 0.5)")
     for preset in ("LOW", "MEDIUM", "HIGH"):
         flights = find_flights(accel, preset, trail_at)
         accepted = []
@@ -182,7 +190,15 @@ def imu_report(ride: Ride | None, path: str, labels_path: str | None = None) -> 
             at = dt.datetime.fromtimestamp(fl["t"], dt.timezone.utc).strftime("%H:%M:%S")
             sp = "" if fl["speed"] is None else f" · {fl['speed'] * 3.6:.0f} km/h"
             tr = " · trail" if fl.get("trail") else ""
-            lines.append(f"  {at}  {fl['air']:.2f} s air · mean {fl['mean_g']:.2f} g · landing {fl['landing_g']:.1f} g{sp}{tr}")
+            extra = ""
+            if preset == "HIGH":
+                drop = baro_drop(sensors["p"], fl["t"], fl["t"] + fl["air"])
+                rot = flight_rotation(sensors["g"], fl["t"], fl["t"] + fl["air"], forward, up)
+                if drop is not None:
+                    extra += f" · baro drop {drop:+.1f} m"
+                if rot:
+                    extra += f" · pitch {rot['pitch']:+.0f}° yaw {rot['yaw']:+.0f}° roll {rot['roll']:+.0f}°"
+            lines.append(f"  {at}  {fl['air']:.2f} s air · mean {fl['mean_g']:.2f} g · landing {fl['landing_g']:.1f} g{sp}{tr}{extra}")
         if preset == "HIGH":
             near = sorted((fl for fl in flights if fl["reason"]), key=lambda f: -f["air"])[:10]
             if near:
