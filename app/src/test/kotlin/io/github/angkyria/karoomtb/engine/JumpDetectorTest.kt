@@ -3,6 +3,7 @@ package io.github.angkyria.karoomtb.engine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Random
 
@@ -10,9 +11,16 @@ class JumpDetectorTest {
     private val g = Scoring.G
 
     /** Feeds |a| (in g) at 100 Hz through the same filter the engine uses. */
-    private fun run(profile: (Double) -> Double, seconds: Double, seed: Long = 1): List<RawJump> {
+    private fun run(
+        profile: (Double) -> Double,
+        seconds: Double,
+        seed: Long = 1,
+        sensitivity: Sensitivity = Sensitivity.MEDIUM,
+        trail: Boolean = false,
+    ): List<RawJump> {
         val imu = ImuProcessor()
-        val detector = JumpDetector(MtbConfig())
+        val detector = JumpDetector(MtbConfig(sensitivity = sensitivity))
+        detector.trail = trail
         val rnd = Random(seed)
         val found = ArrayList<RawJump>()
         var t = 0.0
@@ -90,5 +98,53 @@ class JumpDetectorTest {
         }, 7.0)
         assertEquals(0, result.size)
         assertNotNull(result)
+    }
+
+    /** A 0.19 s hop over a trail feature: below HIGH's 0.20 s on the road, a jump on a trail. */
+    private fun shortHop(t: Double) = when {
+        t in 2.0..2.19 -> 0.3
+        t in 2.19..2.25 -> 3.0
+        else -> 1.0
+    }
+
+    @Test
+    fun `a short hop counts only in trail mode`() {
+        assertEquals(0, run(::shortHop, 4.0, sensitivity = Sensitivity.HIGH).size)
+        val jumps = run(::shortHop, 4.0, sensitivity = Sensitivity.HIGH, trail = true)
+        assertEquals(1, jumps.size)
+        assertTrue(jumps[0].trail)
+    }
+
+    @Test
+    fun `trail mode allows a busier flight`() {
+        // Bars and rider move a lot mid-air on a trail: mean ~0.65 g, over 0.6 but under 0.7.
+        val busy = { t: Double ->
+            when {
+                t in 2.0..2.05 -> 0.3
+                t in 2.05..2.3 -> 0.7
+                t in 2.3..2.36 -> 3.0
+                else -> 1.0
+            }
+        }
+        assertEquals(0, run(busy, 4.0, sensitivity = Sensitivity.HIGH).size)
+        assertEquals(1, run(busy, 4.0, sensitivity = Sensitivity.HIGH, trail = true).size)
+    }
+
+    @Test
+    fun `trail state is latched at take-off`() {
+        val imu = ImuProcessor()
+        val detector = JumpDetector(MtbConfig(sensitivity = Sensitivity.HIGH))
+        detector.trail = true
+        var found: RawJump? = null
+        var t = 0.0
+        while (t < 4.0) {
+            if (t > 2.05) detector.trail = false // left the trail mid-air
+            imu.onAccel(t, 0.0, 0.0, shortHop(t) * g, detector.airborne, !detector.airborne)
+            detector.onAccel(t, imu.magLpG, imu.magG)?.let { found = it }
+            t += 0.01
+        }
+        assertNotNull(found)
+        assertEquals("", detector.recentFlights.last().reason)
+        assertTrue(detector.recentFlights.last().trail)
     }
 }

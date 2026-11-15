@@ -98,7 +98,7 @@ reminders when something is due):
 | Live descents, trails / PBs, map layer, Mark moment, intervals.icu push, debug bundle (v0.3) | 🟡 unit-tested against simulated rides and the karoo-ext SDK; not on a real ride yet |
 | Karoo 3 | ⚪ not tested yet (same SDK, should work) |
 
-97 Kotlin, 69 Python and 16 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
+107 Kotlin, 77 Python and 16 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
 
 ---
 
@@ -489,6 +489,13 @@ levels). Synthetic rides are in `CalibrationTest.kt`:
   *Low* (< 0.35 g, ≥ 0.35 s, landing ≥ 1.3 g) for only clear jumps;
   *Medium* (default); *High* (< 0.55 g, ≥ 0.20 s, landing ≥ 1.05 g) for bunny hops.
   Missing real jumps → go higher; jumps on rough ground that weren't jumps → go lower.
+* **Trail mode (v0.5, automatic).** When the median roughness of the last 30 s is ≥ 0.9 g the
+  bike is on a trail, and each sensitivity uses wider jump gates there: take-off +0.05 g,
+  airtime −0.05 s (*High*: < 0.60 g, ≥ 0.15 s) and up to 0.70 g mean in flight instead of 0.6 g.
+  On roads and paths the gates above stay as they are, so kerbs and potholes are not counted.
+  Fitted on 30 passes over 5 jump spots marked on a map: on *High* the trail gates find 25 of
+  them instead of 13, with no extra detections elsewhere. The choice is made at take-off;
+  `--imu` marks trail-mode jumps with "· trail".
 * **Segment split** (default 15 m): smaller for short, punchy trails.
 * **Debug: save raw sensor data** stores the 100 Hz accelerometer / gyroscope with each ride
   (`imu.csv.gz`, ~3 MB/h). Ride a few known jumps, pull the ride folder and run

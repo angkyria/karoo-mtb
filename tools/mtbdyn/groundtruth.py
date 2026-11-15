@@ -5,7 +5,8 @@ import datetime as dt
 import math
 import os
 
-from .imu import MIN_JUMP_SPEED, PRESETS, Thresholds, find_flights, labels_for, preset_thresholds, verdict
+from .imu import (MIN_JUMP_SPEED, PRESETS, Thresholds, find_flights, labels_for, thresholds_for,
+                  trail_schedule, verdict)
 from .loaders import _index_at
 
 LABELS_FILE = "labels.csv"
@@ -72,7 +73,8 @@ def _speed(ride, t):
 
 def candidates(ride, accel) -> list[dict]:
     """Flights with ≥ 0.12 s air and take-off speed ≥ 2.2 m/s, with each preset's verdict."""
-    per_preset = {name: find_flights(accel, name) for name in PRESETS}
+    trail_at = trail_schedule(ride)
+    per_preset = {name: find_flights(accel, name, trail_at) for name in PRESETS}
     out = []
     for fl in find_flights(accel, CANDIDATE):
         if fl["air"] < MIN_CANDIDATE_AIR:
@@ -85,7 +87,7 @@ def candidates(ride, accel) -> list[dict]:
         for name, flights in per_preset.items():
             near = [f for f in flights if abs(f["t"] - fl["t"]) <= 0.3]
             own = min(near, key=lambda f: abs(f["t"] - fl["t"])) if near else None
-            verdicts[name] = verdict(own, preset_thresholds(name), v) if own else "not a flight"
+            verdicts[name] = verdict(own, thresholds_for(name, own["trail"]), v) if own else "not a flight"
         out.append({**fl, "speed": v, "lap": getattr(s, "lap", None), "lat": getattr(s, "lat", None),
                     "lon": getattr(s, "lon", None), "verdicts": verdicts})
     return out

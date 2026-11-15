@@ -52,6 +52,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
 
     private val imu = ImuProcessor()
     private val jumpDetector = JumpDetector(config)
+    private val trailMode = TrailMode(config)
     private var cornerDetector = CornerDetector()
 
     // Latest context from the Karoo.
@@ -138,6 +139,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         config = newConfig
         jumpDetector.reconfigure(newConfig)
         jumpDetector.reset()
+        trailMode.reconfigure(newConfig)
+        trailMode.reset()
         cornerDetector = CornerDetector()
         rideStartWallMs = wallMs
         rideStartElapsedMs = elapsedMs
@@ -200,6 +203,7 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
             lastTickElapsedMs = 0L
             lastDistanceTotal = Double.NaN
             jumpDetector.reset()
+            jumpDetector.trail = trailMode.active
         }
     }
 
@@ -455,6 +459,8 @@ class MtbEngine(config: MtbConfig = MtbConfig()) {
         // peaks are not cornering load. Real tyres on dirt stay below ~1.2 g.
         val latG = (v * abs(yawRate) / Scoring.G).coerceAtMost(Scoring.MAX_LATERAL_G)
         val rough = if (imuSecond.accelSamples >= 5) imuSecond.roughG else Double.NaN
+        trailMode.onSecond(rough)
+        jumpDetector.trail = trailMode.active
         val grit = (if (moving) Scoring.gritPerSecond(grade, curvature, rough) * dt else 0.0) + gritBonus
         gritBonus = 0.0
 

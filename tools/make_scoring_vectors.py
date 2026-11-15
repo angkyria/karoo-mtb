@@ -66,8 +66,12 @@ def build() -> dict:
             "JUMP_LAND_G": imu.LAND_G, "JUMP_MAX_AIR": imu.MAX_AIR, "JUMP_MAX_MEAN_AIR_G": imu.MAX_MEAN_AIR_G,
             "JUMP_GLITCH": imu.GLITCH, "JUMP_LANDING_WINDOW": imu.LANDING_WINDOW, "JUMP_COOLDOWN": imu.COOLDOWN,
             "JUMP_MIN_SPEED": imu.MIN_JUMP_SPEED,
+            "TRAIL_MAX_MEAN_AIR_G": imu.TRAIL_MAX_MEAN_AIR_G, "TRAIL_ROUGH_G": imu.TRAIL_ROUGH_G,
+            "TRAIL_WINDOW": imu.TRAIL_WINDOW, "TRAIL_MIN_SECONDS": imu.TRAIL_MIN_SECONDS,
         },
-        "presets": {name: {"takeoffG": t, "minAirSec": a, "minLandingG": land} for name, (t, a, land) in imu.PRESETS.items()},
+        "presets": {name: {"takeoffG": t, "minAirSec": a, "minLandingG": land,
+                           "trailTakeoffG": imu.TRAIL_PRESETS[name][0], "trailMinAirSec": imu.TRAIL_PRESETS[name][1]}
+                    for name, (t, a, land) in imu.PRESETS.items()},
         "cases": cases,
     }
 

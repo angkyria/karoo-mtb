@@ -69,6 +69,8 @@ class ScoringParityTest {
             "JUMP_LAND_G" to config.jumpLandG, "JUMP_MAX_AIR" to config.jumpMaxAirSec, "JUMP_MAX_MEAN_AIR_G" to config.jumpMaxMeanAirG,
             "JUMP_GLITCH" to JumpDetector.GLITCH_SEC, "JUMP_LANDING_WINDOW" to JumpDetector.LANDING_WINDOW_SEC,
             "JUMP_COOLDOWN" to JumpDetector.COOLDOWN_SEC, "JUMP_MIN_SPEED" to config.jumpMinSpeed,
+            "TRAIL_MAX_MEAN_AIR_G" to config.trailMaxMeanAirG, "TRAIL_ROUGH_G" to config.trailRoughG,
+            "TRAIL_WINDOW" to config.trailWindowSec.toDouble(), "TRAIL_MIN_SECONDS" to TrailMode.MIN_SECONDS.toDouble(),
         )
         assertEquals(c.keys, mine.keys)
         for ((key, value) in mine) assertEquals(key, c.getValue(key), value, 0.0)
@@ -83,6 +85,8 @@ class ScoringParityTest {
             assertEquals(s.name, p.getValue("takeoffG").num(), s.takeoffG, 0.0)
             assertEquals(s.name, p.getValue("minAirSec").num(), s.minAirSec, 0.0)
             assertEquals(s.name, p.getValue("minLandingG").num(), s.minLandingG, 0.0)
+            assertEquals(s.name, p.getValue("trailTakeoffG").num(), s.trailTakeoffG, 0.0)
+            assertEquals(s.name, p.getValue("trailMinAirSec").num(), s.trailMinAirSec, 0.0)
         }
     }
 }
