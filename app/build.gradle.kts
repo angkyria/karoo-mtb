@@ -7,7 +7,7 @@ plugins {
 }
 
 // Release metadata, injected by CI (see .github/workflows/build.yml).
-val releaseVersion: String = System.getenv("RELEASE_VERSION")?.removePrefix("v") ?: "0.3.0"
+val releaseVersion: String = System.getenv("RELEASE_VERSION")?.removePrefix("v") ?: "0.5.0-dev"
 val buildNumber: Int = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 3
 val releaseBaseUrl: String = System.getenv("BASE_URL")
     ?: "https://github.com/angkyria/karoo-mtb/releases/latest/download"
@@ -61,6 +61,10 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // ./gradlew testDebugUnitTest -Pcorpus=~/karoo-mtb-corpus runs CorpusPrecisionTest on the private label corpus.
+        unitTests.all { test ->
+            test.systemProperty("mtb.corpus", (project.findProperty("corpus") as String?) ?: "")
+        }
     }
     lint {
         // Errors fail CI; warnings are listed in the report (artifact "lint-report").

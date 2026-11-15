@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.util.Log
 import io.github.angkyria.karoomtb.R
 import io.github.angkyria.karoomtb.engine.Jump
+import io.github.angkyria.karoomtb.engine.MarkLabel
 import io.github.angkyria.karoomtb.engine.MtbEngine
 import io.github.angkyria.karoomtb.engine.RideAlert
 import io.github.angkyria.karoomtb.engine.RideSummary
@@ -113,13 +114,13 @@ class RideController(
      * The "Mark moment" controller action: stores a marker (events.jsonl, FIT user_marker event)
      * and shows what the jump detector made of the last flight, so real jumps can be checked.
      */
-    fun markMoment() {
-        val marker = engine.markMoment(System.currentTimeMillis(), SystemClock.elapsedRealtime()) ?: return
-        MtbRuntime.fitEffects.tryEmit(MtbFitFields.marker(marker.n))
-        Log.i(TAG, "marker ${marker.n}: flight ${marker.flightAirSec} verdict '${marker.flightVerdict}'")
+    fun markMoment(label: MarkLabel) {
+        val marker = engine.markMoment(System.currentTimeMillis(), SystemClock.elapsedRealtime(), label) ?: return
+        MtbRuntime.fitEffects.tryEmit(MtbFitFields.marker(marker.n, marker.label))
+        Log.i(TAG, "marker ${marker.n} ${marker.label}: flight ${marker.flightAirSec} verdict '${marker.flightVerdict}'")
         karoo.dispatch(
             InRideAlert(
-                id = "mtb-marker", icon = R.drawable.ic_jump, title = "Marked #${marker.n}",
+                id = "mtb-marker", icon = R.drawable.ic_jump, title = SummaryFormatter.markerTitle(marker),
                 detail = SummaryFormatter.markerDetail(marker), autoDismissMs = 4_000,
                 backgroundColor = R.color.alert_info_bg, textColor = R.color.alert_text,
             ),

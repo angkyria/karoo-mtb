@@ -10,6 +10,7 @@
     <string name="dt_descent_flow">Descent Flow</string>
     <string name="dt_descent_flow_desc">Smoothness of the descent in progress (else the last one), lower is better</string>
     <string name="action_mark">Mark moment (MTB Dynamics)</string>
+    <string name="action_nojump">Not a jump (MTB Dynamics)</string>
     <string name="dt_grit">Grit</string>
     <string name="dt_grit_desc">Ride difficulty so far (kGrit): grade, turns and trail roughness</string>
     <string name="dt_grit60">Grit 60s</string>

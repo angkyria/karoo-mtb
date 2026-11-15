@@ -11,11 +11,12 @@ from typing import Callable
 
 from .history import history, history_text, load_any, ride_paths, trails_text, write_history_csv, write_history_html
 from .icu import IntervalsIcu, description_block, merged_description, parse_field_map, summary_value
-from .imu import _day_start, export_snippets, imu_report, labels_for
+from .imu import _day_start, export_snippets, imu_report, labels_for, load_imu
 from .loaders import _num, load_fit, load_karoo_dir, read_fit_bytes, rescore
 from .model import Ride
 from .report import Units, report_text, write_csv, write_html
 from .summary import summarize
+from .tune import DEFAULT_CORPUS, add_ride, export_fixtures, fit
 
 
 # --------------------------------------------------------------------------------------------
@@ -31,6 +32,15 @@ def main(argv: list[str] | None = None) -> int:
                    "the Karoo's 'Mark moment' presses count as jump labels too")
     p.add_argument("--export-snippets", metavar="DIR",
                    help="with --imu: write each labelled flight (± 3 s of raw IMU, no GPS) as a test fixture, e.g. app/src/test/resources/imu")
+    p.add_argument("--review", action="store_true",
+                   help="with --karoo-dir: label every candidate flight jump / not a jump (saved to labels.csv in the ride folder)")
+    p.add_argument("--dump", metavar="CSV", help="with --review: write the candidates to CSV (fill in the label column) instead of asking")
+    p.add_argument("--corpus", nargs="?", const=DEFAULT_CORPUS, metavar="DIR",
+                   help="with --karoo-dir: add this ride's labelled flights to the private corpus (default ~/karoo-mtb-corpus)")
+    p.add_argument("--fit", dest="fit_corpus", nargs="?", const=DEFAULT_CORPUS, metavar="CORPUS",
+                   help="propose jump presets from the labelled corpus (default ~/karoo-mtb-corpus)")
+    p.add_argument("--export-fixtures", metavar="DIR",
+                   help="with --fit: copy boundary clips to DIR (app/src/test/resources/imu) with per-preset expectations")
     p.add_argument("--icu", metavar="ID|latest", help="analyse an intervals.icu activity (needs INTERVALS_API_KEY)")
     p.add_argument("--icu-athlete", default=os.environ.get("INTERVALS_ATHLETE_ID", "0"), help="athlete id (default 0 = you)")
     p.add_argument("--icu-key", default=os.environ.get("INTERVALS_API_KEY"), help="intervals.icu API key")
@@ -55,6 +65,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--trails-json", help="trails.json pulled from the Karoo: trails with runs and personal bests")
     a = p.parse_args(argv)
     units = Units(a.imperial)
+
+    if a.fit_corpus:
+        result = fit(a.fit_corpus)
+        if result and a.export_fixtures:
+            for name in export_fixtures(a.fit_corpus, result, a.export_fixtures):
+                print(f"wrote {os.path.join(a.export_fixtures, name)}")
+        return 0
 
     if a.trails_json:
         print(trails_text(a.trails_json, units))
@@ -108,6 +125,24 @@ def main(argv: list[str] | None = None) -> int:
             ride = load_fit(f.read(), os.path.basename(a.fit))
     else:
         p.error("give a FIT file, --karoo-dir or --icu")
+
+    if a.review or a.corpus:
+        if not a.karoo_dir:
+            p.error("--review / --corpus need --karoo-dir")
+        imu_path = os.path.join(a.karoo_dir, "imu.csv.gz")
+        if not os.path.exists(imu_path):
+            print(f"no raw sensor log at {imu_path} (enable 'Debug: save raw sensor data' on the Karoo)")
+            return 0
+        if a.corpus:
+            print(f"{add_ride(ride, imu_path, a.corpus)} labelled flights of this ride in {a.corpus}")
+            return 0
+        from .groundtruth import dump_candidates, review
+        accel, _ = load_imu(imu_path)
+        if a.dump:
+            print(f"wrote {dump_candidates(ride, accel, a.dump)} candidates to {a.dump}")
+        else:
+            print(f"{review(ride, a.karoo_dir, accel)} labels saved to {os.path.join(a.karoo_dir, 'labels.csv')}")
+        return 0
 
     if a.weight:
         ride.weight = a.weight

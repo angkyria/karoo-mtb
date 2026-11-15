@@ -12,6 +12,8 @@ data class RawJump(
     val meanAirG: Double,
     val landingG: Double,
     val rotationDeg: Double,
+    /** Judged with the trail gates ([TrailMode]). */
+    val trail: Boolean = false,
 ) {
     val rotations: Int get() = floor((rotationDeg + 60.0) / 360.0).toInt()
 }
@@ -20,7 +22,14 @@ data class RawJump(
  * Any flight the detector saw, accepted or not, for the "mark" button and offline tuning.
  * [reason] is empty when it passed the accelerometer checks.
  */
-data class Flight(val takeoffSec: Double, val airSec: Double, val meanAirG: Double, val landingG: Double, val reason: String) {
+data class Flight(
+    val takeoffSec: Double,
+    val airSec: Double,
+    val meanAirG: Double,
+    val landingG: Double,
+    val reason: String,
+    val trail: Boolean = false,
+) {
     val accepted: Boolean get() = reason.isEmpty()
 }
 
@@ -30,6 +39,9 @@ data class Flight(val takeoffSec: Double, val airSec: Double, val meanAirG: Doub
  * While the bike is in the air the head unit is in free fall and |a| drops well below 1 g.
  * Touchdown is the moment |a| climbs back over [MtbConfig.jumpLandG]; the landing is only
  * accepted if an impact peak follows within [LANDING_WINDOW_SEC].
+ *
+ * On a trail ([trail], set by the engine from [TrailMode]) the take-off, airtime and in-flight
+ * gates are the preset's trail values. The choice is made at take-off and kept for the flight.
  */
 class JumpDetector(private var config: MtbConfig) {
     enum class State { GROUND, AIR, LANDING }
@@ -38,6 +50,11 @@ class JumpDetector(private var config: MtbConfig) {
         private set
 
     val airborne: Boolean get() = state == State.AIR
+
+    /** The bike is on a trail; read at take-off. */
+    var trail = false
+
+    private var flightTrail = false
 
     private val flights = ArrayDeque<Flight>()
 
@@ -61,16 +78,18 @@ class JumpDetector(private var config: MtbConfig) {
 
     fun reset() {
         state = State.GROUND
+        trail = false
         cooldownUntil = 0.0
         flights.clear()
     }
 
     /** @return a finished, validated flight or null. */
     fun onAccel(tSec: Double, magLpG: Double, magG: Double): RawJump? {
-        val takeoffG = config.sensitivity.takeoffG
+        val takeoffG = takeoffG(if (state == State.GROUND) trail else flightTrail)
         when (state) {
             State.GROUND -> if (tSec >= cooldownUntil && magLpG < takeoffG) {
                 state = State.AIR
+                flightTrail = trail
                 airStart = tSec
                 sumG = 0.0
                 countG = 0
@@ -91,7 +110,8 @@ class JumpDetector(private var config: MtbConfig) {
                     // Far too long for a jump: dropped or thrown device.
                     state = State.GROUND
                     cooldownUntil = tSec + 1.0
-                    remember(Flight(airStart, tSec - airStart, if (countG > 0) sumG / countG else 1.0, 0.0, "longer than ${config.jumpMaxAirSec} s"))
+                    val meanG = if (countG > 0) sumG / countG else 1.0
+                    remember(Flight(airStart, tSec - airStart, meanG, 0.0, "longer than ${config.jumpMaxAirSec} s", flightTrail))
                 }
             }
 
@@ -128,18 +148,22 @@ class JumpDetector(private var config: MtbConfig) {
         val air = landTime - airStart
         val meanG = if (countG > 0) sumG / countG else 1.0
         val s = config.sensitivity
+        val minAir = if (flightTrail) s.trailMinAirSec else s.minAirSec
+        val maxMeanG = if (flightTrail) config.trailMaxMeanAirG else config.jumpMaxMeanAirG
         val reason = when {
-            air < s.minAirSec -> String.format(Locale.ROOT, "airtime %.2f s < %.2f", air, s.minAirSec)
+            air < minAir -> String.format(Locale.ROOT, "airtime %.2f s < %.2f", air, minAir)
             air > config.jumpMaxAirSec -> "longer than ${config.jumpMaxAirSec} s"
-            meanG > config.jumpMaxMeanAirG -> String.format(Locale.ROOT, "mean %.2f g in flight", meanG)
+            meanG > maxMeanG -> String.format(Locale.ROOT, "mean %.2f g in flight", meanG)
             peakLandingG < s.minLandingG -> String.format(Locale.ROOT, "landing %.2f g < %.2f", peakLandingG, s.minLandingG)
             else -> ""
         }
-        if (air >= MIN_FLIGHT_SEC) remember(Flight(airStart, air, meanG, peakLandingG, reason))
+        if (air >= MIN_FLIGHT_SEC) remember(Flight(airStart, air, meanG, peakLandingG, reason, flightTrail))
         if (reason.isNotEmpty()) return null
         val rotationDeg = Math.toDegrees(sqrt(rotX * rotX + rotY * rotY + rotZ * rotZ))
-        return RawJump(airStart, landTime, air, meanG, peakLandingG, rotationDeg)
+        return RawJump(airStart, landTime, air, meanG, peakLandingG, rotationDeg, flightTrail)
     }
+
+    private fun takeoffG(onTrail: Boolean) = if (onTrail) config.sensitivity.trailTakeoffG else config.sensitivity.takeoffG
 
     /** The engine rejected an accepted flight later (take-off speed). */
     fun rejectLast(reason: String) {

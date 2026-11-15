@@ -21,23 +21,33 @@
   "JUMP_GLITCH": 0.05,
   "JUMP_LANDING_WINDOW": 0.35,
   "JUMP_COOLDOWN": 0.25,
-  "JUMP_MIN_SPEED": 2.2
+  "JUMP_MIN_SPEED": 2.2,
+  "TRAIL_MAX_MEAN_AIR_G": 0.7,
+  "TRAIL_ROUGH_G": 0.9,
+  "TRAIL_WINDOW": 30,
+  "TRAIL_MIN_SECONDS": 10
  },
  "presets": {
   "LOW": {
    "takeoffG": 0.35,
    "minAirSec": 0.35,
-   "minLandingG": 1.3
+   "minLandingG": 1.3,
+   "trailTakeoffG": 0.4,
+   "trailMinAirSec": 0.3
   },
   "MEDIUM": {
    "takeoffG": 0.45,
    "minAirSec": 0.28,
-   "minLandingG": 1.15
+   "minLandingG": 1.15,
+   "trailTakeoffG": 0.5,
+   "trailMinAirSec": 0.23
   },
   "HIGH": {
    "takeoffG": 0.55,
    "minAirSec": 0.2,
-   "minLandingG": 1.05
+   "minLandingG": 1.05,
+   "trailTakeoffG": 0.6,
+   "trailMinAirSec": 0.15
   }
  },
  "cases": [

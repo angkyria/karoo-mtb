@@ -4,6 +4,7 @@ import io.github.angkyria.karoomtb.engine.BrakingSpot
 import io.github.angkyria.karoomtb.engine.Insights
 import io.github.angkyria.karoomtb.engine.Jump
 import io.github.angkyria.karoomtb.engine.LapComparison
+import io.github.angkyria.karoomtb.engine.MarkLabel
 import io.github.angkyria.karoomtb.engine.Marker
 import io.github.angkyria.karoomtb.engine.MtbEngine
 import io.github.angkyria.karoomtb.engine.RideSummary
@@ -93,6 +94,9 @@ object SummaryFormatter {
     )
 
     fun jumpAlertTitle(jump: Jump): String = fmt("Jump! %.2f s airtime", jump.airSec)
+
+    /** "Jump #3" / "Not a jump #3": the in-ride toast title after a mark press. */
+    fun markerTitle(m: Marker): String = (if (m.label == MarkLabel.NOJUMP) "Not a jump #" else "Jump #") + m.n
 
     /** What the detector made of the flight before a marker: counted, or why not. */
     fun markerDetail(m: Marker): String = when {

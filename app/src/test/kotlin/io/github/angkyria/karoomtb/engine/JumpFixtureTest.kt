@@ -1,11 +1,13 @@
 package io.github.angkyria.karoomtb.engine
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -17,45 +19,25 @@ import org.junit.Test
  * (or it is marked "knownFailure": true in manifest.json while working on it).
  */
 class JumpFixtureTest {
-    private data class Fixture(val file: String, val expectJump: Boolean, val preset: Sensitivity, val knownFailure: Boolean)
+    internal data class Fixture(val file: String, val expect: Map<Sensitivity, Boolean>, val knownFailure: Boolean)
+
+    /** 'expect' per preset, or the older 'expectJump' at 'preset' (default MEDIUM). */
+    internal fun parseFixture(o: JsonObject): Fixture {
+        val expect =
+            o["expect"]?.jsonObject?.entries?.associate { (k, v) -> Sensitivity.valueOf(k) to v.jsonPrimitive.boolean }
+                ?: mapOf(
+                    (o["preset"]?.jsonPrimitive?.content?.let { Sensitivity.valueOf(it) } ?: Sensitivity.MEDIUM) to
+                        o.getValue("expectJump").jsonPrimitive.boolean,
+                )
+        return Fixture(o.getValue("file").jsonPrimitive.content, expect, o["knownFailure"]?.jsonPrimitive?.booleanOrNull ?: false)
+    }
+
+    internal fun parseFixture(json: String): Fixture = parseFixture(Json.parseToJsonElement(json).jsonObject)
 
     private fun fixtures(): List<Fixture> {
         val manifest = javaClass.getResource("/imu/manifest.json") ?: return emptyList()
         val root = Json.parseToJsonElement(manifest.readText()).jsonObject
-        return root.getValue("fixtures").jsonArray.map { e ->
-            val o = e.jsonObject
-            Fixture(
-                file = o.getValue("file").jsonPrimitive.content,
-                expectJump = o.getValue("expectJump").jsonPrimitive.boolean,
-                preset = o["preset"]?.jsonPrimitive?.content?.let { Sensitivity.valueOf(it) } ?: Sensitivity.MEDIUM,
-                knownFailure = o["knownFailure"]?.jsonPrimitive?.booleanOrNull ?: false,
-            )
-        }
-    }
-
-    /** Flights the detector accepts in one snippet. */
-    private fun replay(f: Fixture): List<RawJump> {
-        val text = javaClass.getResource("/imu/${f.file}")?.readText() ?: error("missing fixture ${f.file}")
-        val imu = ImuProcessor()
-        val detector = JumpDetector(MtbConfig(sensitivity = f.preset))
-        val jumps = ArrayList<RawJump>()
-        for (line in text.lineSequence()) {
-            if (line.isBlank() || line.startsWith("#") || line.startsWith("sensor")) continue
-            val c = line.split(',')
-            val t = c[1].toDouble() / 1000.0
-            val x = c[2].toDouble()
-            val y = c[3].toDouble()
-            val z = c[4].toDouble()
-            when (c[0]) {
-                "a" -> {
-                    val air = detector.airborne
-                    imu.onAccel(t, x, y, z, freezeGravity = air, countRoughness = !air)
-                    detector.onAccel(t, imu.magLpG, imu.magG)?.let { jumps += it }
-                }
-                "g" -> detector.onGyro(t, x, y, z)
-            }
-        }
-        return jumps
+        return root.getValue("fixtures").jsonArray.map { parseFixture(it.jsonObject) }
     }
 
     @Test
@@ -67,17 +49,30 @@ class JumpFixtureTest {
         var fp = 0
         var fn = 0
         for (f in all) {
-            val detected = replay(f).isNotEmpty()
-            when {
-                detected && f.expectJump -> tp++
-                detected && !f.expectJump -> fp++
-                !detected && f.expectJump -> fn++
-            }
-            if (detected != f.expectJump && !f.knownFailure) {
-                wrong += "${f.file}: expected ${if (f.expectJump) "a jump" else "no jump"} at ${f.preset}"
+            val text = javaClass.getResource("/imu/${f.file}")?.readText() ?: error("missing fixture ${f.file}")
+            for ((preset, expectJump) in f.expect) {
+                val detected = ImuReplay.flights(text, MtbConfig(sensitivity = preset)).isNotEmpty()
+                when {
+                    detected && expectJump -> tp++
+                    detected && !expectJump -> fp++
+                    !detected && expectJump -> fn++
+                }
+                if (detected != expectJump && !f.knownFailure) {
+                    wrong += "${f.file}: expected ${if (expectJump) "a jump" else "no jump"} at $preset"
+                }
             }
         }
         println("JumpFixtureTest: ${all.size} snippets, $tp jumps found, $fn missed, $fp false")
         assertTrue(wrong.joinToString("\n"), wrong.isEmpty())
+    }
+
+    @Test
+    fun `manifest expect map overrides expectJump per preset`() {
+        val f = parseFixture("""{"file":"x.csv","expect":{"LOW":false,"MEDIUM":false,"HIGH":true}}""")
+        assertEquals(mapOf(Sensitivity.LOW to false, Sensitivity.MEDIUM to false, Sensitivity.HIGH to true), f.expect)
+        val old = parseFixture("""{"file":"y.csv","expectJump":true}""")
+        assertEquals(mapOf(Sensitivity.MEDIUM to true), old.expect)
+        val atHigh = parseFixture("""{"file":"z.csv","expectJump":false,"preset":"HIGH"}""")
+        assertEquals(mapOf(Sensitivity.HIGH to false), atHigh.expect)
     }
 }

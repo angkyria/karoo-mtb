@@ -1,5 +1,6 @@
 package io.github.angkyria.karoomtb.fit
 
+import io.github.angkyria.karoomtb.engine.MarkLabel
 import io.github.angkyria.karoomtb.engine.RecordValues
 import io.github.angkyria.karoomtb.engine.SessionValues
 import io.hammerhead.karooext.models.DeveloperField
@@ -21,8 +22,12 @@ object MtbFitFields {
     private const val UINT8: Short = 2
 
     private var next = 0
+    private val declared = ArrayList<DeveloperField>()
     private fun field(name: String, units: String, type: Short = FLOAT32): DeveloperField =
-        DeveloperField(fieldDefinitionNumber = (next++).toShort(), fitBaseTypeId = type, fieldName = name, units = units)
+        DeveloperField(fieldDefinitionNumber = (next++).toShort(), fitBaseTypeId = type, fieldName = name, units = units).also { declared += it }
+
+    /** Every developer field in declaration order (= field number order). */
+    fun all(): List<DeveloperField> = declared.toList()
 
     // ---- Record message, 1 Hz ----
     val GRIT = field("mtb_grit", "grit")
@@ -73,6 +78,9 @@ object MtbFitFields {
 
     // ---- Event message: the rider's "mark" button (user_marker event with the marker number) ----
     val MARKER = field("mtb_marker", "n", UINT16)
+
+    /** 0 = jump ("Mark moment"), 1 = not a jump. Declared last so earlier field numbers never move. */
+    val MARKER_LABEL = field("mtb_marker_label", "label", UINT8)
     private const val EVENT_USER_MARKER: Short = 32
     private const val EVENT_TYPE_MARKER: Short = 3
 
@@ -86,7 +94,11 @@ object MtbFitFields {
     private const val SESSION_AVG_FLOW = 187
 
     /** FIT event for a marked moment (event user_marker, type marker), so FIT tools show it too. */
-    fun marker(n: Int): WriteEventMesg = WriteEventMesg(EVENT_USER_MARKER, EVENT_TYPE_MARKER, listOf(FieldValue(MARKER, n.toDouble())))
+    fun marker(n: Int, label: MarkLabel): WriteEventMesg = WriteEventMesg(
+        EVENT_USER_MARKER,
+        EVENT_TYPE_MARKER,
+        listOf(FieldValue(MARKER, n.toDouble()), FieldValue(MARKER_LABEL, if (label == MarkLabel.NOJUMP) 1.0 else 0.0)),
+    )
 
     fun record(v: RecordValues, native: Boolean): WriteToRecordMesg {
         val values = mutableListOf(

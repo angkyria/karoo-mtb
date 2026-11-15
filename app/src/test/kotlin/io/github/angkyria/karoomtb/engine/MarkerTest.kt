@@ -1,6 +1,8 @@
 package io.github.angkyria.karoomtb.engine
 
+import io.github.angkyria.karoomtb.fit.MtbFitFields
 import io.github.angkyria.karoomtb.notify.SummaryFormatter
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -63,5 +65,53 @@ class MarkerTest {
         val m = sim.mark()
         assertEquals(0.6, m.flightAirSec!!, 0.05)
         assertEquals("", m.flightVerdict)
+    }
+
+    @Test
+    fun `not-a-jump marker keeps the label and the flight it refers to`() {
+        val sim = RideSim().apply { start() }
+        sim.ride(10, speed = { 6.0 })
+        sim.jumpIn(1.0, 0.6)
+        sim.ride(4, speed = { 6.0 })
+        val m = sim.engine.markMoment(sim.wallMs(), sim.elapsedMs, MarkLabel.NOJUMP)!!
+        assertEquals(MarkLabel.NOJUMP, m.label)
+        assertEquals(0.6, m.flightAirSec!!, 0.05)
+    }
+
+    @Test
+    fun `not-a-jump with no recent flight is still stored`() {
+        val sim = RideSim().apply { start() }
+        sim.ride(30, speed = { 6.0 })
+        val m = sim.engine.markMoment(sim.wallMs(), sim.elapsedMs, MarkLabel.NOJUMP)!!
+        assertNull(m.flightAirSec)
+        assertEquals(1, sim.finish().markers.size)
+    }
+
+    @Test
+    fun `old marker json without a label reads as jump`() {
+        val m = Json { ignoreUnknownKeys = true }.decodeFromString(Marker.serializer(), """{"n":1,"wallMs":5,"offsetSec":1.0}""")
+        assertEquals(MarkLabel.JUMP, m.label)
+        val json = Json.encodeToString(Marker.serializer(), m.copy(label = MarkLabel.NOJUMP))
+        assertTrue(json, json.contains("\"label\":\"nojump\""))
+    }
+
+    @Test
+    fun `toast title names the label and detail the verdict`() {
+        val sim = RideSim().apply { start() }
+        sim.ride(10, speed = { 6.0 })
+        sim.jumpIn(1.0, 0.6)
+        sim.ride(4, speed = { 6.0 })
+        val m = sim.engine.markMoment(sim.wallMs(), sim.elapsedMs, MarkLabel.NOJUMP)!!
+        assertEquals("Not a jump #1", SummaryFormatter.markerTitle(m))
+        assertTrue(SummaryFormatter.markerDetail(m).endsWith("counted"))
+        assertEquals("Jump #2", SummaryFormatter.markerTitle(sim.mark()))
+    }
+
+    @Test
+    fun `marker label FIT field comes after every existing field`() {
+        val all = MtbFitFields.all()
+        assertEquals("mtb_marker_label", all.last().fieldName)
+        assertEquals(all.size - 1, all.last().fieldDefinitionNumber.toInt())
+        assertEquals("mtb_marker", all[all.size - 2].fieldName)
     }
 }

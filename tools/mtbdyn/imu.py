@@ -1,11 +1,13 @@
 """Raw IMU debug log replay (jump sensitivity tuning)."""
 from __future__ import annotations
 
+import bisect
 import datetime as dt
 import gzip
 import json
 import math
 import os
+from dataclasses import dataclass
 
 from .loaders import _index_at
 from .model import Ride
@@ -21,6 +23,70 @@ PRESETS = {  # mirror of MtbConfig.kt Sensitivity: take-off g, min airtime s, mi
     "HIGH": (0.55, 0.20, 1.05),
 }
 LAND_G, MAX_AIR, MAX_MEAN_AIR_G, GLITCH, LANDING_WINDOW, COOLDOWN, MIN_JUMP_SPEED = 0.80, 3.0, 0.6, 0.05, 0.35, 0.25, 2.2
+# Trail mode (mirror of TrailMode.kt and Sensitivity.trail*): take-off g, min airtime s per preset
+TRAIL_PRESETS = {
+    "LOW": (0.40, 0.30),
+    "MEDIUM": (0.50, 0.23),
+    "HIGH": (0.60, 0.15),
+}
+TRAIL_MAX_MEAN_AIR_G, TRAIL_ROUGH_G, TRAIL_WINDOW, TRAIL_MIN_SECONDS = 0.70, 0.9, 30, 10
+
+
+@dataclass(frozen=True)
+class Thresholds:
+    """The tunable jump gates (a preset, or a point of the --fit search grid)."""
+    takeoff_g: float
+    min_air: float
+    min_landing_g: float
+    max_mean_air_g: float = MAX_MEAN_AIR_G
+
+
+def preset_thresholds(name: str) -> Thresholds:
+    t, a, land = PRESETS[name]
+    return Thresholds(t, a, land, MAX_MEAN_AIR_G)
+
+
+def trail_thresholds(name: str) -> Thresholds:
+    t, a = TRAIL_PRESETS[name]
+    return Thresholds(t, a, PRESETS[name][2], TRAIL_MAX_MEAN_AIR_G)
+
+
+def thresholds_for(name: str, trail: bool) -> Thresholds:
+    return trail_thresholds(name) if trail else preset_thresholds(name)
+
+
+def trail_schedule(ride: Ride | None):
+    """t -> on a trail, as TrailMode.kt decides it each second; None without per-second roughness."""
+    if not ride or not ride.samples or all(s.rough is None for s in ride.samples):
+        return None
+    times, states, window = [], [], []
+    for s in ride.samples:
+        if s.rough is not None:
+            window.append(s.rough)
+            del window[:-TRAIL_WINDOW]
+        times.append(s.t)
+        states.append(len(window) >= TRAIL_MIN_SECONDS and sorted(window)[len(window) // 2] >= TRAIL_ROUGH_G)
+
+    def at(t: float) -> bool:
+        i = bisect.bisect_right(times, t) - 1
+        return states[i] if i >= 0 else False
+    return at
+
+
+def verdict(fl: dict, th: Thresholds, speed: float | None) -> str:
+    """Same checks, same order as JumpDetector.validate + MtbEngine's take-off speed check. Empty = a jump."""
+    air, mean_g, peak = fl["air"], fl["mean_g"], fl["landing_g"]
+    if air < th.min_air:
+        return "airtime %.2f s < %.2f" % (air, th.min_air)
+    if air > MAX_AIR:
+        return "longer than %.1f s" % MAX_AIR
+    if mean_g > th.max_mean_air_g:
+        return "mean %.2f g in flight" % mean_g
+    if peak < th.min_landing_g:
+        return "landing %.2f g < %.2f" % (peak, th.min_landing_g)
+    if speed is not None and speed < MIN_JUMP_SPEED:
+        return "speed %.1f km/h" % (speed * 3.6)
+    return ""
 
 
 def load_imu(path: str) -> tuple[list[tuple[float, float, float, float]], float]:
@@ -40,9 +106,15 @@ def load_imu(path: str) -> tuple[list[tuple[float, float, float, float]], float]
     return accel, offset or 0.0
 
 
-def find_flights(accel, preset: str) -> list[dict]:
-    """Port of ImuProcessor (|a| filter) + JumpDetector; also returns rejected flights with the reason."""
-    takeoff_g, min_air, min_landing = PRESETS[preset]
+def find_flights(accel, preset: str | Thresholds, trail_at=None) -> list[dict]:
+    """Port of ImuProcessor (|a| filter) + JumpDetector; also returns rejected flights with the reason.
+
+    With [trail_at] (see trail_schedule) and a preset name, flights that take off on a trail are
+    judged with the preset's trail gates, as on the Karoo."""
+    base = preset_thresholds(preset) if isinstance(preset, str) else preset
+    trail_th = trail_thresholds(preset) if isinstance(preset, str) and trail_at else None
+    th, on_trail = base, False
+    takeoff_g = th.takeoff_g
     out = []
     mag_lp, last_t = 1.0, None
     state, air_start, land_t, sum_g, n_g, peak, cooldown = "GROUND", 0.0, 0.0, 0.0, 0, 0.0, 0.0
@@ -52,6 +124,10 @@ def find_flights(accel, preset: str) -> list[dict]:
         last_t = t
         mag_lp = mag if dt <= 0 else mag_lp + dt / (0.03 + dt) * (mag - mag_lp)
         if state == "GROUND":
+            if trail_th:
+                on_trail = trail_at(t)
+                th = trail_th if on_trail else base
+                takeoff_g = th.takeoff_g
             if t >= cooldown and mag_lp < takeoff_g:
                 state, air_start, sum_g, n_g = "AIR", t, 0.0, 0
         elif state == "AIR":
@@ -69,11 +145,10 @@ def find_flights(accel, preset: str) -> list[dict]:
                 state, cooldown = "GROUND", t + COOLDOWN
                 air = land_t - air_start
                 mean_g = sum_g / n_g if n_g else 1.0
-                reason = ("airtime %.2f s < %.2f" % (air, min_air) if air < min_air else
-                          "mean %.2f g in flight" % mean_g if mean_g > MAX_MEAN_AIR_G else
-                          "landing %.2f g < %.2f" % (peak, min_landing) if peak < min_landing else "")
+                reason = verdict({"air": air, "mean_g": mean_g, "landing_g": peak}, th, None)
                 if air >= 0.08:
-                    out.append({"t": air_start, "air": air, "mean_g": mean_g, "landing_g": peak, "reason": reason})
+                    out.append({"t": air_start, "air": air, "mean_g": mean_g, "landing_g": peak, "reason": reason,
+                                "trail": on_trail})
     return out
 
 
@@ -91,8 +166,9 @@ def imu_report(ride: Ride | None, path: str, labels_path: str | None = None) -> 
         window = [s.speed for s in ride.samples[max(0, i - 3):i + 1]]
         return sorted(window)[len(window) // 2] if window else None
 
+    trail_at = trail_schedule(ride)
     for preset in ("LOW", "MEDIUM", "HIGH"):
-        flights = find_flights(accel, preset)
+        flights = find_flights(accel, preset, trail_at)
         accepted = []
         for fl in flights:
             v = speed_at(fl["t"])
@@ -105,7 +181,8 @@ def imu_report(ride: Ride | None, path: str, labels_path: str | None = None) -> 
         for fl in accepted:
             at = dt.datetime.fromtimestamp(fl["t"], dt.timezone.utc).strftime("%H:%M:%S")
             sp = "" if fl["speed"] is None else f" · {fl['speed'] * 3.6:.0f} km/h"
-            lines.append(f"  {at}  {fl['air']:.2f} s air · mean {fl['mean_g']:.2f} g · landing {fl['landing_g']:.1f} g{sp}")
+            tr = " · trail" if fl.get("trail") else ""
+            lines.append(f"  {at}  {fl['air']:.2f} s air · mean {fl['mean_g']:.2f} g · landing {fl['landing_g']:.1f} g{sp}{tr}")
         if preset == "HIGH":
             near = sorted((fl for fl in flights if fl["reason"]), key=lambda f: -f["air"])[:10]
             if near:
@@ -115,7 +192,7 @@ def imu_report(ride: Ride | None, path: str, labels_path: str | None = None) -> 
                     lines.append(f"  {at}  {fl['air']:.2f} s · {fl['reason']}")
     labels = labels_for(ride, labels_path, _day_start(accel[0][0]))
     if labels:
-        lines += labels_report(evaluate_labels(accel, labels, speed_at), labels)
+        lines += labels_report(evaluate_labels(accel, labels, speed_at, trail_at), labels)
     return "\n".join(lines)
 
 
@@ -152,29 +229,40 @@ def load_imu_all(path: str) -> list[tuple[str, float, float, float, float]]:
 
 def read_labels(path: str, day_start: float) -> list[dict]:
     """
-    A labels file: one `time,label` per line, label `jump` or `nojump`; time as UTC clock time
-    (HH:MM:SS, as the --imu report prints take-offs) or epoch seconds. # starts a comment.
+    A labels file: one `time,label[,source]` per line, label `jump` or `nojump`; time as UTC clock
+    time (HH:MM:SS, as the --imu report prints take-offs), epoch seconds or wall_ms (labels.csv
+    written by --review). # starts a comment.
     """
     out = []
     with open(path) as f:
         for line in f:
             line = line.split("#")[0].strip()
-            if not line:
+            if not line or line.startswith("wall_ms"):
                 continue
-            when, label = [p.strip() for p in line.split(",")[:2]]
+            parts = [p.strip() for p in line.split(",")]
+            when, label = parts[0], parts[1] if len(parts) > 1 else ""
+            if label == "":
+                continue   # a --dump row nobody filled in
+            source = parts[2] if len(parts) > 2 and parts[2] in ("review", "button", "file") else "file"
             if ":" in when:
                 h, m, s = when.split(":")
                 t = day_start + int(h) * 3600 + int(m) * 60 + float(s)
             else:
                 t = float(when)
+                if t > 1e11:   # wall_ms
+                    t /= 1000.0
             if label not in ("jump", "nojump"):
                 raise ValueError(f"{path}: label must be jump or nojump, got {label!r}")
-            out.append({"t": t, "label": label, "kind": "file"})
+            out.append({"t": t, "label": label, "kind": "file", "source": source})
     return out
 
 
 def labels_for(ride: Ride | None, labels_path: str | None, day_start: float) -> list[dict]:
-    labels = [{"t": m["t"], "label": "jump", "kind": "marker", "n": m["n"]} for m in (ride.markers if ride else [])]
+    labels = [{"t": m["t"], "label": m.get("label", "jump"), "kind": "marker", "source": "button", "n": m["n"]}
+              for m in (ride.markers if ride else [])]
+    if labels_path is None and ride is not None and ride.folder:
+        auto = os.path.join(ride.folder, "labels.csv")
+        labels_path = auto if os.path.exists(auto) else None
     if labels_path:
         labels += read_labels(labels_path, day_start)
     return sorted(labels, key=lambda x: x["t"])
@@ -189,11 +277,11 @@ def match_label(flights: list[dict], label: dict) -> dict | None:
     return min(near, key=lambda f: abs(f["t"] - label["t"])) if near else None
 
 
-def evaluate_labels(accel, labels: list[dict], speed_at=lambda t: None) -> dict:
+def evaluate_labels(accel, labels: list[dict], speed_at=lambda t: None, trail_at=None) -> dict:
     """Per sensitivity: labelled jumps found, no-jump labels wrongly detected, detections without a label."""
     result = {}
     for preset in PRESETS:
-        flights = find_flights(accel, preset)
+        flights = find_flights(accel, preset, trail_at)
         for fl in flights:
             v = speed_at(fl["t"])
             if not fl["reason"] and v is not None and v < MIN_JUMP_SPEED:
@@ -201,8 +289,13 @@ def evaluate_labels(accel, labels: list[dict], speed_at=lambda t: None) -> dict:
         accepted = [f for f in flights if not f["reason"]]
         found = missed = false = 0
         used = set()
+        from .groundtruth import resolve
+        matched = {id(lab): fl for fl, lab in resolve(accepted, labels)}
+        overruled = {id(lab) for lab in labels if match_label(accepted, lab) is not None and id(lab) not in matched}
         for lab in labels:
-            hit = match_label(accepted, lab)
+            if id(lab) in overruled:
+                continue   # another label (a review) decided this flight
+            hit = matched.get(id(lab))
             if hit:
                 used.add(id(hit))
             if lab["label"] == "jump":
@@ -249,8 +342,8 @@ def update_manifest(out_dir: str, entries: list[dict]) -> str:
     names = {e["file"] for e in entries}
     fixtures = [e for e in current if e["file"] not in names] + entries
     with open(path, "w") as f:
-        json.dump({"comment": "IMU snippets replayed by JumpFixtureTest.kt (MEDIUM sensitivity unless 'preset' says otherwise). "
-                              "Write them with mtb_analyze.py --karoo-dir RIDE --imu --export-snippets DIR.",
+        json.dump({"comment": "IMU snippets replayed by JumpFixtureTest.kt: 'expect' per preset, or 'expectJump' at MEDIUM "
+                              "(or at 'preset'). Write real ones with mtb_analyze.py --fit CORPUS --export-fixtures DIR.",
                    "fixtures": sorted(fixtures, key=lambda e: e["file"])}, f, indent=1)
         f.write("\n")
     return path

@@ -1,5 +1,6 @@
 package io.github.angkyria.karoomtb.engine
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** One detected jump. Distances in metres, speeds in m/s, times in seconds. */
@@ -26,6 +27,16 @@ data class Jump(
     val lon: Double? = null,
 )
 
+/** What the rider said about the flight before a "mark" press. */
+@Serializable
+enum class MarkLabel {
+    @SerialName("jump")
+    JUMP,
+
+    @SerialName("nojump")
+    NOJUMP,
+}
+
 /**
  * The rider pressed the "mark" button (a controller / remote action): what happened is worth a
  * look, typically a jump. Carries the last flight the detector saw, if it landed shortly before.
@@ -43,6 +54,8 @@ data class Marker(
     val flightLandingG: Double? = null,
     /** Empty = counted as a jump; otherwise why it was not. */
     val flightVerdict: String? = null,
+    /** JUMP from "Mark moment", NOJUMP from "Not a jump". Files without the field read as JUMP. */
+    val label: MarkLabel = MarkLabel.JUMP,
 )
 
 /** One detected corner (heading change of at least 35°). Positive angle = left turn. */

@@ -144,4 +144,7 @@
     <BonusAction
         actionId="mark"
         displayName="@string/action_mark" />
+    <BonusAction
+        actionId="nojump"
+        displayName="@string/action_nojump" />
 </ExtensionInfo>
