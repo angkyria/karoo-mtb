@@ -7,7 +7,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 > [!WARNING]
-> **Testing / debug builds (v0.3.0).** This runs on the developer's Karoo 2 and was calibrated
+> **Testing / debug builds (v0.6.0).** This runs on the developer's Karoo 2 and was calibrated
 > with real rides. Releases are test builds: numbers can still change between versions, and parts
 > of it have not been on a real ride yet (see [Testing status](#testing-status)).
 > Please [report bugs](../../issues/new/choose) with logs: [Testing & debugging](#testing--debugging)
@@ -96,6 +96,8 @@ reminders when something is due):
 | Flight Attendant / AXS / power meter (v0.2) | 🟡 tested with simulated streams, and the analyser on real rides; the first ride with the extension is pending |
 | Service tracker (v0.2) | 🟡 unit-tested; needs real use over many rides |
 | Live descents, trails / PBs, map layer, Mark moment, intervals.icu push, debug bundle (v0.3) | 🟡 unit-tested against simulated rides and the karoo-ext SDK; not on a real ride yet |
+| Trail mode (v0.5) | 🟡 jump gates fitted on 30 passes over 5 jump spots pinned on a map |
+| Barometer drop, mount calibration (v0.6) | 🟡 measurement only: stored per jump, not yet used for jump counts or heights |
 | Karoo 3 | ⚪ not tested yet (same SDK, should work) |
 
 117 Kotlin, 90 Python and 21 JavaScript tests run in CI on every push, plus ktlint, ruff and Android lint.
